@@ -97,10 +97,81 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
 |---|---|---|---|---|---|---|
 | 1 | **Live training show** (core demo) | Polish "Learn live": score-over-time chart, make it faster (50 ms window or dt 1 ms -> needs a new bank + check scores), dopamine flash (stimulate `PAM*` on reward, `PPL1*` on punishment - they exist in the annotations, class `DAN`), learn-by-demonstration fallback, "load pre-trained" button | `readout.py`, new chart component | 3-4 h | low | GPU |
 | 2 | **Lesion lab + controls** | Lesion UI beyond presets (search any type), `scripts/lesion_scores.py` = 32 games per lesion -> table, find the neurons *between* LC10 and DNa02 (path search in `connectome`) and lesion those, resolve the scrambled-wiring question (reset brain every move in both conditions and compare) | new script, new component | 3-4 h | low | GPU |
-| 3 | **Hardware** (Pi Zero 2 W, ultrasonic sensor, RFID shield) | Pi runs a small Python WebSocket client on WiFi: distance + approach speed -> `{"sensor": {"danger_ahead": x}}` at 10 Hz so a judge's hand makes the giant fiber fire and the snake dodge. RFID tags as cards: "sugar"/"bitter" tag -> stimulate `LB3*`/`LB1*` and show MN9 (needs a small server addition), or tags = reward / punish / lesion cards. HC-SR04 echo is 5 V: use a voltage divider into the Pi's 3.3 V GPIO | new `hardware/` folder, tiny `server.py` addition | 2-4 h | low-medium | Pi; no GPU (use `replay_server.py` or a teammate's server) |
+| 3 | **Hardware** (Pi Zero 2 W, ultrasonic sensor, RFID shield) | See **Hardware track** at the end of this file. Pi runs a small Python WebSocket client on WiFi: distance + approach speed -> `{"sensor": {"danger_ahead": x}}` at 10 Hz so a judge's hand makes the giant fiber fire and the snake dodge. RFID tags as cards: "sugar"/"bitter" tag -> stimulate `LB3*`/`LB1*` and show MN9 (needs a small server addition), or tags = reward / punish / lesion cards. HC-SR04 echo is 5 V: use a voltage divider into the Pi's 3.3 V GPIO | new `hardware/` folder, tiny `server.py` addition | 2-4 h | low-medium | Pi; no GPU (use `replay_server.py` or a teammate's server) |
 | 4 | **Arena + human vs fly + frontend** | Make versus/arena fun: countdown, win condition, scores, fly colours, leaderboard of lesioned flies in swarm, brain panel highlights for stimulated + descending neurons, spike audio (giant fiber clicks), overall layout polish, fallback video | `src/`, small `snake.py` rules | 4-5 h | low | any GPU or replay |
 | 5 | *Stretch:* **Real vision** | Paint the board onto the eye: stimulate medulla columns by `assignedOlHex1/2` retinotopy instead of LC10/LC4 directly. First a 1 h feasibility check: which types have hex coordinates; does a left-eye patch give left-biased LC10/LC4/DNa02? Go/no-go after that. Raw photoreceptors will likely fail (graded, non-spiking; motion detection needs timing the LIF lacks) | new `flybrain/vision.py`, `channels.py` | 1 h check, then 4-8 h | high | GPU |
 | 6 | *Stretch:* **Learning inside the brain** | Mushroom body: reward -> PAM dopamine, punishment -> PPL1, plasticity only at Kenyon cell -> MBON synapses. 30-45 min check first: do Kenyon cells respond to our stimuli at all, and does MBON activity reach the steering neurons? | new module | check, then 4-6 h | high | GPU |
 
 Suggested default for four people: 1, 2, 3, 4 - and whoever finishes first runs the feasibility check for 5 or 6.
 Pitch + slides: owner of track 2 (they hold the evidence), with everyone's numbers.
+
+## Hardware track (owner: Owen) - everything decided or learned so far
+**Parts on hand:** Raspberry Pi Zero 2 W, an ultrasonic distance sensor, an RFID evaluation shield. Exact sensor and shield
+models have not been checked - read the markings before wiring. No Arduino is confirmed (only an Arduino IDE folder on one laptop).
+
+**Architecture.** The Pi Zero 2 W runs Python and has WiFi, so it is a WebSocket client of the brain server directly -
+no Arduino, no serial bridge. Start the server with `--host 0.0.0.0`, put the Pi on the same network, connect to
+`ws://<gpu-laptop-ip>:8000/ws`. Hackathon/venue WiFi often blocks device-to-device traffic: a phone hotspot is the fallback.
+
+**Input: hand = looming threat (the main demo).** Send `{"sensor": {"danger_ahead": x}}` with x in 0..1.
+- The value is *added* to the game's own senses for every fly, clipped to 1, and expires after 0.6 s: resend at >= 5 Hz (10 Hz is good).
+- Any channel name works: `food_L, food_R, danger_L, danger_R, danger_ahead`. Two sensors could drive `danger_L` / `danger_R`.
+- Verified against the live server (scripted client, not real hardware): `danger_ahead: 1` -> giant fiber DNp01 ~400 Hz on both sides.
+- Looming means *approaching*, so encode closeness plus approach speed, e.g.
+  `x = clip(max(0, (60 - cm) / 50) + max(0, -d_cm_per_s) / 100, 0, 1)` - tune on the day.
+- `{"stimulate": {...}}` is different: it *replaces* all senses and freezes the game. Use `sensor` for hardware.
+- Latency: one brain window is 100 ms and the solo server runs ~6 moves/s, so hand-to-dodge is roughly 0.2-0.4 s.
+
+**Output: what the brain is doing, for servos / LEDs / sound.** Every frame (one per move) has, per fly,
+`flies[i].steer` = firing rates in Hz for `DNa02_L/R`, `DNa01_L/R` (steering) and `DNp01_L/R` (giant fiber, escape), plus
+`action` (0 left, 1 straight, 2 right), `reward`, and the board in `arenas[]`. `frame.selected` is the fly shown on screen.
+A frame is ~20-25 kB of JSON (it also carries brain activity for the viewer); the Pi Zero 2 W parses that fine at 6 Hz.
+
+**Wiring caution.** A classic HC-SR04 runs on 5 V and its ECHO pin outputs 5 V; the Pi's GPIO is 3.3 V only. Put a voltage
+divider on ECHO (1 kOhm from ECHO to the GPIO pin, 2 kOhm from that pin to ground). TRIG can be driven straight from 3.3 V.
+3.3 V-tolerant variants (HC-SR04P, RCWL-1601) need no divider. RFID shields built for Arduino are usually 5 V logic too:
+check before connecting its UART/I2C/SPI lines to the Pi, and level-shift if needed.
+
+**RFID ideas, cheapest first.**
+1. Cards that need no server change: "reward" / "punish" cards -> `{"feedback": 1}` / `{"feedback": -1}` (only acts in the
+   "Learn live" policy); "lesion" cards -> `{"lesion": {"fly": null, "types": ["DNa02"]}}`, a "heal" card -> `"types": []`;
+   mode cards -> `{"policy": "hardwired"}`, `{"layout": "swarm"}`.
+2. Sugar / bitter cards (the published result, physically): sugar taste neurons are annotation type `LB3*`, bitter `LB1*`,
+   the feeding motor neuron is `MN9`. In the model LB3 drives MN9 and LB1 gives 0 Hz. This needs a small server addition that
+   does not exist yet: a message that stimulates arbitrary neuron types (today only the five channels can be stimulated) and
+   `MN9` added to the rates reported in `steer`. Then: sugar card -> MN9 fires -> a servo extends a proboscis; bitter card -> nothing.
+
+**Other output ideas discussed (none built):** proboscis servo on MN9; giant-fiber or DNa02 spikes as clicks through a speaker
+(the Pi Zero has no headphone jack - use PWM audio, I2S or USB); snake on a NeoPixel grid / brain activity on an LED strip;
+a joystick for the human snake in the `versus` layout (`{"human": "up"}`); and the ambitious one, a two-wheel robot whose left /
+right motor speeds follow `DNa02_L` / `DNa02_R`, with light or distance sensors feeding `food_*` and `danger_*`.
+
+**Developing without the GPU laptop.** Point at a teammate's running server (several laptops have GPUs). `scripts/replay_server.py`
+replays recorded frames over the same socket, which is enough for output devices, but it ignores incoming messages, so sensor input
+cannot be tested against it. It has not been run yet.
+
+**Starting point for the Pi (untested sketch).** `pip install websockets gpiozero`
+```python
+import asyncio, json, time, websockets
+from gpiozero import DistanceSensor                     # echo through the voltage divider!
+sensor = DistanceSensor(echo=24, trigger=23, max_distance=2)
+
+async def main():
+    async with websockets.connect("ws://<gpu-laptop-ip>:8000/ws", max_size=None) as ws:
+        async def read():                                # drain frames; use frame["flies"][0]["steer"] for outputs
+            async for raw in ws:
+                steer = json.loads(raw)["flies"][0]["steer"]
+        asyncio.create_task(read())
+        last_cm, last_t = sensor.distance * 100, time.monotonic()
+        while True:
+            cm, now = sensor.distance * 100, time.monotonic()
+            speed = (cm - last_cm) / (now - last_t)      # negative = approaching
+            x = min(1.0, max(0.0, (60 - cm) / 50) + max(0.0, -speed) / 100)
+            await ws.send(json.dumps({"sensor": {"danger_ahead": round(x, 2)}}))
+            last_cm, last_t = cm, now
+            await asyncio.sleep(0.1)
+asyncio.run(main())
+```
+
+**Say it honestly in the pitch:** the hand is not a visual stimulus to the fly; the sensor value is injected into the fly's
+looming-detector neurons (LPLC2 / LC4), and everything downstream - the giant fiber firing, the dodge - is the connectome's.
