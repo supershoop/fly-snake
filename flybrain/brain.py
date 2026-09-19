@@ -28,14 +28,15 @@ SHUFFLE_SEED = 0
 
 class Brain:
     def __init__(self, connectome: Connectome, batch: int = 1, dt: float = 0.5, shuffled: bool = False,
-                 weight_scale: float = MALECNS_WEIGHT_SCALE, device: str | None = None, seed: int = 0):
+                 weight_scale: float = MALECNS_WEIGHT_SCALE, device: str | None = None, seed: int = 0,
+                 shuffle_seed: int = SHUFFLE_SEED):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.n, self.batch, self.dt = connectome.n, batch, dt
         self.rng = torch.Generator(device=self.device).manual_seed(seed)
         post = connectome.post
         if shuffled:  # control: same neurons, same out-degrees and weights, random targets.
             # Fixed seed on purpose: `seed` only drives the input noise, so every shuffled Brain is the SAME scrambled network.
-            post = np.random.default_rng(SHUFFLE_SEED).permutation(post)
+            post = np.random.default_rng(shuffle_seed).permutation(post)
         weights = torch.sparse_coo_tensor(np.stack([post, connectome.pre]), connectome.weight * (W_SYN * weight_scale),
                                           (self.n, self.n)).coalesce()
         self.weights = weights.to_sparse_csr().to(self.device)

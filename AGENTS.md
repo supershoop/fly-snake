@@ -68,6 +68,13 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
   inputs separable - **scrambled-vs-real with the trained readout is NOT evidence that the wiring matters.** The evidence is the
   nothing-trained policy: real wiring 2.0-2.75, scrambled 0.00, and the lesion table below. (An earlier 0.00 for the scrambled
   trained readout was a bug: the evaluation used a different shuffle than the training bank. Fixed: `SHUFFLE_SEED`.)
+  Re-measured fairly (`scripts/untrained_control.py`, 32 games, nothing trained): real wiring **2.28**, every game eats, steering
+  neurons fire ~35 spikes/move; three independent scrambles **0.00 / 0.00 / 0.09**, steering neurons <1 spike/move, dead in ~6 moves.
+- Learning from reward alone, offline on the response banks (`live_learning_test.py --bank bank-real|bank-shuffled`, 16 flies,
+  1,200 moves each, identical rule): real wiring reaches **17-20** at every learning rate tried (0.001-0.01); scrambled wiring
+  plateaus at **~5** at every rate and never reaches an average of 8. Caveats: one scramble, one seed per setting, offline only.
+  Do NOT demo "readout trained on the real brain, run on the scrambled brain": a decoder fails on any network it was not trained
+  on, so that break says nothing about the wiring.
   Carry-over between moves is harmless: real wiring 18.8 with carry-over vs 20.1 with the brain reset every move.
 - Live learning, 16 real brains sharing one blank readout: last-20 average 3.2 at 47 s, 5.1 at 94 s, 8.2 at 141 s (2.1 moves/s).
   Offline estimate (`live_learning_test.py`) reaches ~19. One fly alone learns too slowly; rates above 0.01 collapse.
