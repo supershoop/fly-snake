@@ -1,0 +1,85 @@
+{
+  "evaluation": "continuous brain simulation; bounded smoke comparison, unfinished games censored",
+  "game_seeds": [
+    30000,
+    30001,
+    30002,
+    30003
+  ],
+  "brain_seed": 77,
+  "max_moves": 275,
+  "window_ms": 100,
+  "dt_ms": 0.5,
+  "baseline": "readout-real-legacy",
+  "model": "readout-real",
+  "model_sha256": "5948178feb44f033bedb6eb6acef976345c2bca3bb64cd8f3848670f42c0d580",
+  "seconds": 1153.1879172325134,
+  "baseline_result": {
+    "mean_score": 12.0,
+    "scores": [
+      16,
+      12,
+      11,
+      9
+    ],
+    "collisions": 4,
+    "starved": 0,
+    "alive_at_limit": 0,
+    "games": [
+      {
+        "score": 16,
+        "alive": false,
+        "end_reason": "collision"
+      },
+      {
+        "score": 12,
+        "alive": false,
+        "end_reason": "collision"
+      },
+      {
+        "score": 11,
+        "alive": false,
+        "end_reason": "collision"
+      },
+      {
+        "score": 9,
+        "alive": false,
+        "end_reason": "collision"
+      }
+    ]
+  },
+  "candidate_result": {
+    "mean_score": 24.5,
+    "scores": [
+      24,
+      25,
+      18,
+      31
+    ],
+    "collisions": 1,
+    "starved": 0,
+    "alive_at_limit": 3,
+    "games": [
+      {
+        "score": 24,
+        "alive": false,
+        "end_reason": "collision"
+      },
+      {
+        "score": 25,
+        "alive": true,
+        "end_reason": null
+      },
+      {
+        "score": 18,
+        "alive": true,
+        "end_reason": null
+      },
+      {
+        "score": 31,
+        "alive": true,
+        "end_reason": null
+      }
+    ]
+  }
+}
