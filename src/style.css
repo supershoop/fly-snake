@@ -14,3 +14,5 @@
 .training-feedback .feedback-result{min-height:2.8em;color:#b9c9d9;}
 .training-feedback output{min-width:4ch;}
 .training-feedback button:disabled{cursor:not-allowed;}
+.lesion-lab{display:grid;grid-template-columns:1.2fr 1fr;gap:24px;} .lesion-lab input[type=text],.lesion-lab input:not([type]){background:#0b0e12;border:1px solid #344150;color:#d6dce3;padding:6px 8px;font-size:11px;min-width:0;flex:1;} .lesion-lab small{color:#7d8c9e;} .lesion-lab .chip{min-height:22px;padding:2px 6px;margin-left:6px;font-size:10px;border-color:#7d483b;color:#ffc3b0;} .readout.learning{grid-template-columns:1fr 1fr;}
+@media(max-width:760px){.lesion-lab,.readout.learning{grid-template-columns:1fr;}}

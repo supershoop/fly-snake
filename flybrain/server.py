@@ -99,6 +99,12 @@ class Experiment:
         for brain in self.brains.values():
             brain.set_lesion(torch.as_tensor(mask))
 
+    def type_catalogue(self) -> list:
+        """[[type, cells, superclass], ...] for every annotated neuron type, most numerous first."""
+        neurons = self.connectome.neurons.dropna(subset=["type"])
+        table = neurons.groupby("type").agg(cells=("bodyId", "size"), superclass=("superclass", "first")).sort_values("cells", ascending=False)
+        return [[kind, int(row.cells), row.superclass if isinstance(row.superclass, str) else ""] for kind, row in table.iterrows()]
+
     def handle(self, message: dict):
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
@@ -237,6 +243,9 @@ async def socket(websocket: WebSocket):
     try:
         while True:
             message = json.loads(await websocket.receive_text())
+            if experiment is not None and isinstance(message, dict) and "hello" in message:  # one-off catalogue for the lesion search
+                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue()}}))
+                continue
             if experiment is not None and isinstance(message, dict):
                 if "paused" in message:
                     experiment.paused = bool(message["paused"])

@@ -22,6 +22,8 @@ export type LiveFrame = {
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
 };
+/** [type, number of cells, superclass] for every annotated neuron type; requested once with {hello: true}. */
+export type NeuronType = [string, number, string];
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 
 const url = () => import.meta.env.VITE_BRAIN_WS ?? `ws://${location.hostname || 'localhost'}:8000/ws`;
@@ -30,6 +32,8 @@ const url = () => import.meta.env.VITE_BRAIN_WS ?? `ws://${location.hostname || 
 export function useLiveBrain() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
   const [status, setStatus] = useState<LiveStatus>('connecting');
+  const [types, setTypes] = useState<NeuronType[]>([]);
+  const asked = useRef(false);
   const socket = useRef<WebSocket | null>(null);
   useEffect(() => {
     let closed = false, retry = 0;
@@ -37,12 +41,17 @@ export function useLiveBrain() {
       const ws = new WebSocket(url());
       socket.current = ws;
       ws.onopen = () => setStatus('live');
-      ws.onmessage = event => setFrame(JSON.parse(event.data));
-      ws.onclose = () => { if (closed) return; setStatus('offline'); setFrame(null); retry = window.setTimeout(connect, 1500); };
+      ws.onmessage = event => {
+        const message = JSON.parse(event.data);
+        if (message.hello) { setTypes(message.hello.types); return; }
+        if (!asked.current) { asked.current = true; ws.send(JSON.stringify({ hello: true })); }
+        setFrame(message);
+      };
+      ws.onclose = () => { if (closed) return; asked.current = false; setStatus('offline'); setFrame(null); retry = window.setTimeout(connect, 1500); };
     };
     connect();
     return () => { closed = true; clearTimeout(retry); socket.current?.close(); };
   }, []);
   const send = useCallback((message: object) => { if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify(message)); }, []);
-  return { frame, status, send };
+  return { frame, status, send, types };
 }
