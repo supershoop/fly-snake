@@ -4,6 +4,7 @@ import { FlyScene } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
 import { LesionLab } from './components/LesionLab';
+import { FlyView } from './components/FlyView';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
 import { useLiveBrain, type Layout, type PolicyName } from './lib/live';
 
@@ -26,7 +27,7 @@ export function App() {
   const [error, setError] = useState('');
   const [paused, setPaused] = useState(false);
   const [held, setHeld] = useState<string | null>(null);
-  const { frame, status, send, types } = useLiveBrain();
+  const { frame, status, send, types, vision } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
     void loadAtlas(abort.signal).then(setAtlas).catch(e => { if (!abort.signal.aborted) setError(String(e)); });
@@ -63,7 +64,7 @@ export function App() {
         <section className="panel environment-panel"><h2>01 / ENVIRONMENT <span>Snake · egocentric senses</span></h2><Environment frame={frame} onSelect={select => send({ select })}/>
           <div className="panel-bottom">Food is shown to the fly as a small visual object, walls and body as looming threats</div></section>
         <section className="panel brain-panel"><h2>02 / BRAIN SOMA ATLAS <span>MaleCNS v1.0</span></h2>
-          {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
+          {atlas ? <BrainScene atlas={atlas} frame={activity} pathway={vision?.pathway} pathwayRates={frame?.vision?.pathway}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
           <div className="panel-bottom">{frame ? `${frame.activeNeurons.toLocaleString('en-US')} of ${frame.totalNeurons.toLocaleString('en-US')} simulated neurons spiked in the last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`} <a href={asset('data/brain-atlas/NOTICE.md')}>Data notice ↗</a></div>
         </section>
         <section className="panel fly-panel"><h2>03 / BODY <span>Flybody</span></h2><FlyScene/><div className="panel-bottom">Anatomical mesh · no motor simulation <span>Drag to rotate</span></div></section>
@@ -83,6 +84,7 @@ export function App() {
             onPointerDown={() => stimulate(name)} onPointerUp={() => stimulate(null)} onPointerLeave={() => held === name && stimulate(null)}>{name}</button>)}</div>
         </div>
       </section>
+      <FlyView frame={frame} vision={vision} send={send}/>
       <LesionLab frame={frame} types={types} send={send}/>
       <section className="model-status readout learning" aria-label="Live learning">
         <div><strong>LIVE LEARNING</strong><p>{frame?.policy === 'learning' ? `${frame.learning.moves.toLocaleString('en-US')} moves of experience · last-20 average ${average.toFixed(1)}` : 'Choose “Learn live” to start from a blank readout.'}</p>

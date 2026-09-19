@@ -21,6 +21,7 @@ from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .readout import HardwiredPolicy, OnlineLearner, Policy
 from .snake import Arena
+from .vision import VisionDisplay, VisionUntrained, build_retina
 
 warnings.filterwarnings("ignore")
 WINDOW_MS = 100.0
@@ -48,6 +49,10 @@ class Experiment:
         self.visible = torch.as_tensor(np.flatnonzero(np.isin(body_ids, atlas_ids)), device=self.device)
         self.visible_ids = body_ids[self.visible.cpu().numpy()]
         readout = self.connectome.neurons.loc[self.channels.readout_index.numpy()]
+        self.readout_neurons, self.encoder = readout, "channels"
+        self.retina = build_retina(self.connectome)
+        self.display = VisionDisplay(self.connectome, self.retina)
+        self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device)])
         self.steer = {f"{kind}_{side}": torch.as_tensor(np.flatnonzero((readout["type"].eq(kind) & readout["side"].eq(side)).to_numpy()), device=self.device)
                       for kind in STEER_TYPES + ["DNp01"] for side in "LR"}
         self.brains, self.policies = {}, {}
@@ -76,14 +81,15 @@ class Experiment:
         return self.brains[self.wiring]
 
     def policy(self):
-        key = (self.policy_name, self.wiring)
+        key = (self.policy_name, self.wiring, self.encoder)
         if key not in self.policies:
+            retina = self.encoder == "retina"
             if self.policy_name == "hardwired":
-                self.policies[key] = HardwiredPolicy(self.channels.steer_sign)
+                self.policies[key] = VisionUntrained(self.readout_neurons) if retina else HardwiredPolicy(self.channels.steer_sign)
             elif self.policy_name == "learning":
                 self.policies[key] = OnlineLearner(len(self.readout_index), self.device)
             else:
-                self.policies[key] = Policy.load(f"readout-{self.wiring}", self.device)
+                self.policies[key] = Policy.load("readout-vision" if retina else f"readout-{self.wiring}", self.device)
         return self.policies[key]
 
     def apply_lesions(self):
@@ -108,8 +114,10 @@ class Experiment:
             self.wiring = message["wiring"]
         if message.get("policy") in ("trained", "hardwired", "learning"):
             self.policy_name = message["policy"]
+        if message.get("encoder") in ("channels", "retina"):  # 5 on/off channels, or the connectome-derived retinotopic map
+            self.encoder = message["encoder"]
         if message.get("learning") == "reset":
-            self.policies.pop(("learning", self.wiring), None)
+            self.policies.pop(("learning", self.wiring, self.encoder), None)
             self.history = []
         if "lesion" in message:  # {"fly": index or null for all, "types": [regex on annotation type, ...]}
             targets = range(len(self.flies)) if message["lesion"].get("fly") is None else [int(message["lesion"]["fly"])]
@@ -139,12 +147,20 @@ class Experiment:
                 self.handle(self.inbox.pop(0))
         brain, policy = self.brain(), self.policy()
         levels = np.stack([self.arenas[a].encode(s) for a, s in self.flies], axis=1)  # [C, B]
+        view = np.zeros((len(self.retina.index), len(self.flies)), dtype=np.float32)  # [retina cells, B]
+        for f, (a, s) in enumerate(self.flies):  # with the channel encoder only the displayed fly's view is needed
+            if self.encoder == "retina" or f == self.selected:
+                view[:, f] = self.retina.render(self.arenas[a], s)
+        if self.encoder == "retina":
+            levels = np.zeros_like(levels)  # the game reaches the brain through the retina only; override/sensor still add channels
         if self.override is not None:
             levels = np.repeat(np.array([[self.override.get(n, 0.0)] for n in CHANNEL_NAMES], dtype=np.float32), len(self.flies), axis=1)
         elif time.monotonic() - self.sensor_seen < SENSOR_HOLD_S:
             extra = np.array([[float(self.sensor.get(n, 0.0))] for n in CHANNEL_NAMES], dtype=np.float32)
             levels = np.clip(levels + extra, 0, 1)
-        counts = brain.run(WINDOW_MS, self.stim_index, self.channels.levels(torch.as_tensor(levels, device=self.device)))
+        shown_to_retina = view if self.encoder == "retina" and self.override is None else np.zeros_like(view)
+        drive = torch.cat([self.channels.levels(torch.as_tensor(levels, device=self.device)), torch.as_tensor(shown_to_retina, device=self.device)])
+        counts = brain.run(WINDOW_MS, self.all_stim_index, drive)
         dn_counts = counts[self.readout_index]
         actions, probabilities = policy.act(dn_counts)
         actions = actions.tolist()
@@ -178,7 +194,8 @@ class Experiment:
                        "probabilities": [round(p, 3) for p in probabilities[f].tolist()], "reward": float(rewards[f]),
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
-            "selected": self.selected, "lesionPresets": LESION_PRESETS,
+            "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder,
+            "vision": self.display.live(counts[:, self.selected], seconds, view[:, self.selected]),
             "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:]},
             "activeNeurons": int((rates > 0).sum()), "totalNeurons": self.connectome.n,
             "values": [[int(i), round(float(v), 3)] for i, v in zip(self.visible_ids[firing], shown[firing])],
@@ -223,7 +240,7 @@ async def socket(websocket: WebSocket):
         while True:
             message = json.loads(await websocket.receive_text())
             if experiment is not None and isinstance(message, dict) and "hello" in message:  # one-off catalogue for the lesion search
-                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue()}}))
+                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue(), "vision": experiment.display.static}}))
                 continue
             if experiment is not None and isinstance(message, dict):
                 if "paused" in message:

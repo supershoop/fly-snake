@@ -15,6 +15,17 @@ export type LiveFrame = {
   arenas: ArenaState[]; flies: FlyState[]; selected: number; lesionPresets: string[];
   learning: { moves: number; games: number; scores: number[] };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
+  encoder: 'channels' | 'retina';
+  /** Selected fly: firing rate (Hz) of each pathway node, and the retina cells lit this move as [cell index, drive 0..1]. */
+  vision: { pathway: Record<string, number>; view: [number, number][] };
+};
+/** Sent once with the hello reply. Built by flybrain/vision.py from the connectome. */
+export type VisionStatic = {
+  pathway: { nodes: { id: string; label: string; side: 'L' | 'R'; role: string; bodyIds: number[] }[]; edges: [string, string][] };
+  /** Eye columns as [u, v, side]: u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal). */
+  eye: { columns: [number, number, 'L' | 'R'][] };
+  /** Retina cells as [azimuth deg (negative = left), u, v, side, isFoodDetector]. */
+  retina: { cells: [number, number, number, 'L' | 'R', boolean][]; fieldDeg: [number, number]; threatRange: number };
 };
 /** [type, number of cells, superclass] for every annotated neuron type; requested once with {hello: true}. */
 export type NeuronType = [string, number, string];
@@ -27,6 +38,7 @@ export function useLiveBrain() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
   const [status, setStatus] = useState<LiveStatus>('connecting');
   const [types, setTypes] = useState<NeuronType[]>([]);
+  const [vision, setVision] = useState<VisionStatic | null>(null);
   const asked = useRef(false);
   const socket = useRef<WebSocket | null>(null);
   useEffect(() => {
@@ -37,7 +49,7 @@ export function useLiveBrain() {
       ws.onopen = () => setStatus('live');
       ws.onmessage = event => {
         const message = JSON.parse(event.data);
-        if (message.hello) { setTypes(message.hello.types); return; }
+        if (message.hello) { setTypes(message.hello.types); setVision(message.hello.vision ?? null); return; }
         if (!asked.current) { asked.current = true; ws.send(JSON.stringify({ hello: true })); }
         setFrame(message);
       };
@@ -47,5 +59,5 @@ export function useLiveBrain() {
     return () => { closed = true; clearTimeout(retry); socket.current?.close(); };
   }, []);
   const send = useCallback((message: object) => { if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify(message)); }, []);
-  return { frame, status, send, types };
+  return { frame, status, send, types, vision };
 }

@@ -34,6 +34,7 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 | `flybrain/brain.py` | Batched torch LIF (Shiu et al. 2024 parameters), state `[N, B]` = B independent brains. `run(ms, stim_index, stim_level, record_index)` -> spike counts. `set_lesion(mask [N] or [N,B])`, `resize(batch)`, `shuffled=True` = control |
 | `flybrain/channels.py` | Senses: food = LC10 L/R, threat = LC4 L/R, threat ahead = LPLC2. Readout = all 1,314 descending neurons |
 | `flybrain/snake.py` | `Arena`: any number of fly/human snakes on one board, relative actions, rewards, egocentric encoder (24 situations), heuristic `teacher` |
+| `flybrain/vision.py` | Retinotopic encoder: each LC10/LC4/LPLC2 cell's viewing direction from the eye-map position of its columnar inputs; board painted as a 1-D horizon onto those cells. Also `VisionDisplay` (pathway + eye-map data for the page) and `VisionUntrained` |
 | `flybrain/readout.py` | `Policy` (linear, fitted offline), `OnlineLearner` (same readout, learns live from reward), `HardwiredPolicy` (DNa02/DNa01 left-minus-right, nothing trained) |
 | `flybrain/server.py` | FastAPI WebSocket live loop: layouts, policies, per-fly lesions, sensor input, feedback, human control |
 | `src/lib/live.ts` | Frame types + WebSocket hook. `src/App.tsx` layout/controls, `src/components/Environment.tsx` boards, `BrainScene.tsx` takes `{time, values:[bodyId, 0..1][]}` |
@@ -44,6 +45,7 @@ Client -> server, any combination of keys in one message (applied between moves)
 |---|---|
 | `{"layout": "solo"\|"swarm"\|"versus"\|"arena"}` | 1 fly · 16 flies on 16 boards · fly vs human on one board · 8 flies on one board |
 | `{"policy": "trained"\|"hardwired"\|"learning"}`, `{"wiring": "real"\|"shuffled"}` | who picks the move; scrambled-wiring control |
+| `{"encoder": "channels"\|"retina"}` | how the game reaches the brain: 5 on/off channels (default), or the retinotopic eye (`flybrain/vision.py`; trained policy = `models/readout-vision.npz`, hardwired = `VisionUntrained`) |
 | `{"learning": "reset"}` | blank readout for live learning (rewards: food +1, death -1, closer/farther +-0.1) |
 | `{"feedback": 1\|-1, "fly": i or omitted for all}` | human reward / punishment added to the last move's reward (learning policy only) |
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
@@ -53,7 +55,9 @@ Client -> server, any combination of keys in one message (applied between moves)
 
 Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `arenas[]` (boards, foods, snakes), `flies[]`
 (per fly: `channels`, `action`, `probabilities`, `reward`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
-`values` (selected fly's brain activity by bodyId), `learning {moves, games, scores[]}`, `activeNeurons`, `sensor`, `manual`.
+`values` (selected fly's brain activity by bodyId), `learning {moves, games, scores[]}`, `activeNeurons`, `sensor`, `manual`,
+`encoder`, `vision {pathway: {node: Hz}, view: [[retina cell, drive]]}` for the selected fly. The one-off `{"hello": true}` reply
+carries `types` (lesion search) and `vision` (static: pathway nodes/edges by bodyId, eye columns, retina cells; `VisionStatic` in `live.ts`).
 Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you change the protocol, update this table and `live.ts`.**
 
 ## Findings so far (keep these honest in the pitch)
@@ -81,6 +85,17 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
   effect distinguishable from noise at 8 games - the readout reads many descending neurons and compensates. One outlier
   (AOTU025 alone: 11.0) needs more games before anyone interprets it.
 - With DNa02 silenced the trained readout still steers (it uses other descending neurons); the hardwired policy cannot.
+- Vision (`scripts/vision_feasibility.py`): painting pixels onto the eye's columns **fails** - the whole left eye lit gives LC10
+  < 1 Hz and no steering; even a 3x optic-lobe gain gives 5 Hz and the wrong size tuning. Expected: the optic lobe is mostly
+  graded, non-spiking cells. So `flybrain/vision.py` enters at the detector layer with connectome-derived viewing directions.
+  Eye-map axes from soma positions: hex1-hex2 large = front, hex1+hex2 large = dorsal; lamina and medulla show opposite signs,
+  i.e. the data reproduce the optic chiasm flip. `scripts/vision_tuning.py`: food 60-90 deg to one side -> ipsilateral DNa02
+  93-207 Hz (nearer = more), food dead ahead -> silent although most cells are lit there; giant fiber 17-60 Hz for an obstacle
+  4 cells away, 130-290 Hz at 1.5 cells, biased to its side. None of that is trained.
+- Retina encoder scores (`scripts/train_vision.py`, 32 games): trained readout **9.2** (87% teacher match, 7,200 training moves),
+  nothing trained **1.8**. Lower than the channel encoder (17.4 / 2.75) but continuous input, not 24 situations. Caveats: only
+  142 left vs 228 right LC10 cells get a viewing direction; the -15..150 deg field per eye is assumed; `VisionUntrained` uses
+  giant-fiber asymmetry to turn away, which is our rule - in a real fly the giant fiber triggers a jump, not a turn.
 - Known weakness to answer: the game shows the brain only 24 distinct situations and the readout copies a rule-based teacher,
   so "the readout plays, the brain relabels" is a fair criticism. Lesions, the untrained mode and real vision are the answers.
 - Everything the viewer shows is *simulated / predicted* activity, never measured. Say so.

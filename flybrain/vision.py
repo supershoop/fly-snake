@@ -95,3 +95,61 @@ def build_retina(connectome: Connectome, min_synapses: int = 10) -> Retina:
     eccentricity = FIELD_FRONT_DEG + (u_front - cells["u"]) / (u_front - u_back) * (FIELD_BACK_DEG - FIELD_FRONT_DEG)
     azimuth = np.where(cells["side"].eq("L"), -eccentricity, eccentricity)
     return Retina(torch.as_tensor(cells.index.to_numpy().copy()), azimuth.astype(np.float32), food[cells.index].to_numpy())
+
+
+# --- what the web page shows ----------------------------------------------------------------------------------------
+PATHWAY_NODES = [  # (name, regex on annotation type, role) - one node per side. Found by path search, see scripts/lesion_scores.py
+    ("LC10", r"LC10.*", "object detectors"), ("AOTU", r"AOTU025|AOTU012|AOTU015", "relay cells"), ("DNa02", r"DNa02", "steering"),
+    ("LC4", r"LC4", "looming detectors"), ("LPLC2", r"LPLC2", "looming detectors"), ("DNp01", r"DNp01", "giant fiber · escape"),
+    ("PVLP", r"PVLP141|PVLP137", "relay cells"), ("DNa01", r"DNa01", "turn away"),
+]
+PATHWAY_EDGES = [("LC10", "AOTU", "same"), ("AOTU", "DNa02", "same"), ("LC4", "DNp01", "same"), ("LPLC2", "DNp01", "same"),
+                 ("LC4", "PVLP", "same"), ("PVLP", "DNa01", "opposite")]
+
+
+class VisionDisplay:
+    """Static maps sent to the page once, plus the per-move values that animate them."""
+
+    def __init__(self, connectome: Connectome, retina: Retina):
+        self.retina, neurons = retina, connectome.neurons
+        kind, side = neurons["type"].fillna(""), neurons["side"]
+        self.nodes = {f"{name}_{s}": np.flatnonzero((kind.str.fullmatch(pattern) & side.eq(s)).to_numpy())
+                      for name, pattern, _ in PATHWAY_NODES for s in "LR"}
+        roles = {name: role for name, _, role in PATHWAY_NODES}
+        other = {"L": "R", "R": "L"}
+        cells = receptive_fields(connectome).loc[retina.index.numpy()]
+        columns = neurons[neurons["assignedOlHex1"].notna() & neurons["type"].eq("Mi1")]  # one Mi1 per eye column
+        self.static = {
+            "pathway": {
+                "nodes": [{"id": node, "label": node.split("_")[0], "side": node[-1], "role": roles[node.split("_")[0]],
+                           "bodyIds": neurons["bodyId"].to_numpy()[index].tolist()} for node, index in self.nodes.items()],
+                "edges": [[f"{a}_{s}", f"{b}_{s if relation == 'same' else other[s]}"] for a, b, relation in PATHWAY_EDGES for s in "LR"],
+            },
+            # u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal)
+            "eye": {"columns": [[int(r.assignedOlHex1 - r.assignedOlHex2), int(r.assignedOlHex1 + r.assignedOlHex2), r.side] for r in columns.itertuples()]},
+            "retina": {"cells": [[round(float(az), 1), round(float(r.u), 2), round(float(r.v), 2), r.side, bool(food)]
+                                 for az, r, food in zip(retina.azimuth, cells.itertuples(), retina.is_food)],
+                       "fieldDeg": [FIELD_FRONT_DEG, FIELD_BACK_DEG], "threatRange": THREAT_RANGE},
+        }
+
+    def live(self, counts: torch.Tensor, seconds: float, drive: np.ndarray) -> dict:
+        """counts [N] spikes of the selected fly this move; drive [S] what its retina cells were shown."""
+        return {"pathway": {node: round(float(counts[torch.as_tensor(index, device=counts.device)].mean()) / seconds, 1) if len(index) else 0.0
+                            for node, index in self.nodes.items()},
+                "view": [[int(i), round(float(drive[i]), 2)] for i in np.flatnonzero(drive)]}
+
+
+class VisionUntrained:
+    """Nothing trained: turn toward the side whose steering neuron DNa02 fires more, and away from the side whose giant
+    fiber DNp01 fires more. The second rule is ours: in a real fly the giant fiber triggers a jump, not a turn."""
+
+    def __init__(self, readout_neurons: pd.DataFrame, threshold: float = 2.0):
+        def sign(kind):
+            return np.where(readout_neurons["type"].eq(kind) & readout_neurons["side"].eq("L"), 1.0,
+                            np.where(readout_neurons["type"].eq(kind) & readout_neurons["side"].eq("R"), -1.0, 0.0))
+        self.weights, self.threshold = torch.as_tensor(sign("DNa02") - 0.5 * sign("DNp01"), dtype=torch.float32), threshold
+
+    def act(self, dn_counts: torch.Tensor):
+        drive = self.weights.to(dn_counts.device) @ dn_counts  # [B], positive = turn left
+        action = torch.where(drive > self.threshold, 0, torch.where(drive < -self.threshold, 2, 1))
+        return action, torch.nn.functional.one_hot(action, 3).float()
