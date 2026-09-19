@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "source": "https://github.com/TuragaLab/flybody",
+  "license": "Apache-2.0",
+  "model": "flybody anatomically detailed Drosophila melanogaster body",
+  "binary": "model.bin",
+  "sourceTriangles": 272550,
+  "outputTriangles": 93879,
+  "pivots": {
+    "body": [
+      0,
+      0,
+      0
+    ],
+    "front_left": [
+      0.0209,
+      -0.0272,
+      0.0317
+    ],
+    "front_right": [
+      -0.0209,
+      -0.0272,
+      0.0317
+    ]
+  },
+  "parts": [
+    {
+      "group": "body",
+      "material": "body",
+      "positionByteOffset": 0,
+      "positionCount": 21900,
+      "indexByteOffset": 262800,
+      "indexCount": 128469
+    },
+    {
+      "group": "body",
+      "material": "black",
+      "positionByteOffset": 776676,
+      "positionCount": 9405,
+      "indexByteOffset": 889536,
+      "indexCount": 52080
+    },
+    {
+      "group": "body",
+      "material": "red",
+      "positionByteOffset": 1097856,
+      "positionCount": 4736,
+      "indexByteOffset": 1154688,
+      "indexCount": 27000
+    },
+    {
+      "group": "body",
+      "material": "ocelli",
+      "positionByteOffset": 1262688,
+      "positionCount": 3256,
+      "indexByteOffset": 1301760,
+      "indexCount": 19500
+    },
+    {
+      "group": "body",
+      "material": "bristle-brown",
+      "positionByteOffset": 1379760,
+      "positionCount": 628,
+      "indexByteOffset": 1387296,
+      "indexCount": 3600
+    },
+    {
+      "group": "body",
+      "material": "lower",
+      "positionByteOffset": 1401696,
+      "positionCount": 2991,
+      "indexByteOffset": 1437588,
+      "indexCount": 16440
+    },
+    {
+      "group": "body",
+      "material": "brown",
+      "positionByteOffset": 1503348,
+      "positionCount": 2913,
+      "indexByteOffset": 1538304,
+      "indexCount": 17034
+    },
+    {
+      "group": "body",
+      "material": "membrane",
+      "positionByteOffset": 1606440,
+      "positionCount": 504,
+      "indexByteOffset": 1612488,
+      "indexCount": 3000
+    },
+    {
+      "group": "front_left",
+      "material": "body",
+      "positionByteOffset": 1624488,
+      "positionCount": 1056,
+      "indexByteOffset": 1637160,
+      "indexCount": 6300
+    },
+    {
+      "group": "front_left",
+      "material": "brown",
+      "positionByteOffset": 1662360,
+      "positionCount": 163,
+      "indexByteOffset": 1664316,
+      "indexCount": 957
+    },
+    {
+      "group": "front_right",
+      "material": "body",
+      "positionByteOffset": 1668144,
+      "positionCount": 1056,
+      "indexByteOffset": 1680816,
+      "indexCount": 6300
+    },
+    {
+      "group": "front_right",
+      "material": "brown",
+      "positionByteOffset": 1706016,
+      "positionCount": 163,
+      "indexByteOffset": 1707972,
+      "indexCount": 957
+    }
+  ]
+}

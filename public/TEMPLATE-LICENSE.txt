@@ -1,0 +1,82 @@
+Cobanov Template Attribution License 1.0
+SPDX-License-Identifier: LicenseRef-Cobanov-Template-Attribution-1.0
+
+Copyright (c) 2026 Mert Cobanov
+Template: https://github.com/cobanov/fly-connectome-template
+Author: https://github.com/cobanov
+
+1. Scope
+This license applies to the original template code, documentation and example
+code in this repository (the "Software"), and to copies and modified versions
+of that material. Third-party materials identified in THIRD_PARTY_NOTICES.md
+or carrying a separate license are excluded and retain their own licenses.
+
+2. Permission
+Subject to all conditions below, permission is granted, without charge, to use,
+copy, modify, develop models with, distribute and commercially deploy the
+Software and works containing substantial portions of it. Recipients may keep
+their own models, weights, datasets and modifications private. This license
+does not require publication of source code, model weights or outputs.
+
+3. Mandatory web-interface attribution
+Every web interface deployed or distributed that incorporates substantial
+portions of the Software, including modified versions, must display this
+readable attribution with functioning hyperlinks:
+
+Built with fly-connectome-template by Mert Cobanov.
+
+"fly-connectome-template" must link to:
+https://github.com/cobanov/fly-connectome-template
+"Mert Cobanov" must link to:
+https://github.com/cobanov
+
+The credit must appear in the main interface, its footer, or an About/Credits
+view directly reachable by one clearly labeled link or button from the main
+interface. It must be readable at normal zoom on desktop and mobile, including
+reasonable contrast. It may be restyled or translated while retaining the
+project and author names and links. Hidden text, HTML comments, source code,
+invisible/off-screen content, hover-only text, or a repository link alone do
+not satisfy this requirement. Removing or renaming an attribution component
+does not remove the obligation. Interfaces without network connectivity must
+show the same credit and complete URLs as readable text.
+
+4. Mandatory repository and distribution attribution
+Every source repository containing substantial portions of the Software must
+include the linked attribution in section 3 in its root README (or equivalent
+primary repository documentation), together with a reference to this license.
+Every distributed copy or substantial portion of the Software must preserve
+this license, its copyright notice and the required attribution. Modified
+versions must identify that modifications were made. Documentation accompanying
+binary-only distributions must include the same credit and license text.
+
+5. Preservation of conditions
+You may license your original additions separately, but may not remove,
+contradict, replace or purport to waive these conditions for the Software.
+Recipients of the Software receive permission only under these conditions.
+A separate written permission from Mert Cobanov is required to waive template
+attribution. No trademark rights or endorsement are granted.
+
+6. Independent material and third parties
+This license imposes no additional restrictions on independently licensed
+MaleCNS data, Flybody assets, dependencies, or independently created models,
+weights, datasets and outputs. A web interface or repository incorporating
+the Software remains subject to sections 3 and 4 regardless of the license
+of the models or data it displays. Preserve third-party notices separately.
+
+7. Termination and reinstatement
+Permission ends automatically upon violation of these conditions. It is
+reinstated when the violation is fully corrected within 30 days after first
+written notice of that violation from the copyright holder. Rights granted
+to recipients who remain in compliance are not terminated by another party's
+violation. Rights that cannot lawfully be restricted are unaffected.
+
+8. Disclaimer
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER
+IS NOT LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE
+SOFTWARE OR ITS USE. No scientific validity, biological accuracy of model
+outputs, or suitability for a particular experiment is warranted.
+
+This is a custom, attribution-required source-available license. It is not
+represented as an OSI-approved license or as MIT, Apache-2.0, GPL or AGPL.

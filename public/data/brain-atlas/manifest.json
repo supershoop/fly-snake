@@ -1,0 +1,110 @@
+{
+  "dataset": "male-cns:v1.0",
+  "count": 140024,
+  "totalAnnotations": 211577,
+  "tracedWithoutSoma": 25098,
+  "selection": "All Traced annotations with measured somaLocation. No invented positions. The renderer includes only optic, central and descending groups; VNC-associated and unclassified somata are not shown.",
+  "coordinateUnits": "8 nm voxels, native MaleCNS EM space",
+  "byteOrder": "little-endian",
+  "files": {
+    "positions": "positions.bin",
+    "ids": "ids.bin",
+    "groups": "groups.bin"
+  },
+  "groups": [
+    {
+      "id": 0,
+      "key": "optic",
+      "color": "#81b5c8",
+      "count": 90807
+    },
+    {
+      "id": 1,
+      "key": "central",
+      "color": "#cfcac0",
+      "count": 32170
+    },
+    {
+      "id": 2,
+      "key": "descending",
+      "color": "#dfb672",
+      "count": 1312
+    },
+    {
+      "id": 3,
+      "key": "vnc",
+      "color": "#af9bc3",
+      "count": 15362
+    },
+    {
+      "id": 4,
+      "key": "other",
+      "color": "#6c7777",
+      "count": 373
+    }
+  ],
+  "source": "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/body-annotations-male-cns-v1.0-minconf-0.5.feather",
+  "sourceSha256": "2177e246113e4cfbf1e7772ec37c6da1955ff22e8063d0b1f833101f99a9a3b2",
+  "exportSha256": {
+    "positions.bin": "c09e0180f49e4f7c40d99c60bab1273492a8c808a6e9afea1f5c4ca9cb6a3168",
+    "ids.bin": "930402247442138d3f5fa5b5583357a96bc55f043719b6137a4994221702386a",
+    "groups.bin": "51fbfba3f615125be95eb3302956c254626ae0b1825c423bb7cb80b8d169f171"
+  },
+  "groupSuperclasses": {
+    "optic": [
+      "ol_intrinsic",
+      "ol_sensory",
+      "visual_projection",
+      "visual_centrifugal",
+      "visual_projection_tbc"
+    ],
+    "central": [
+      "cb_intrinsic",
+      "cb_sensory",
+      "cb_motor",
+      "cb_endocrine",
+      "cb_sensory_tbc",
+      "cb_efferent"
+    ],
+    "descending": [
+      "descending_neuron",
+      "descending_neuron_tbc",
+      "sensory_descending",
+      "efferent_descending"
+    ],
+    "vnc": [
+      "vnc_intrinsic",
+      "vnc_sensory",
+      "vnc_motor",
+      "vnc_efferent",
+      "vnc_tbc",
+      "vnc_sensory_tbc",
+      "vnc_endocrine",
+      "ascending_neuron",
+      "sensory_ascending",
+      "sensory_ascending_tbc",
+      "efferent_ascending"
+    ]
+  },
+  "reference": "https://male-cns.janelia.org/download/",
+  "displayTransform": "Native (x, y, z) to (x, -y, -z); bounding-box centering; one uniform scale 5/max(axis extents); rigid view rotation. Orthographic projection. No per-axis normalization.",
+  "pointMeaning": "One curated somaLocation per Traced body ID; point size is a display marker, not anatomical cell size.",
+  "limitations": "Soma locations only, not neurites or the synaptic connectivity graph. Brain selection is superclass-based, not a complete anatomical brain segmentation. The video/game overlay is illustrative and not measured or predicted neural activity.",
+  "license": "CC BY 4.0",
+  "attribution": "FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology, and Google Research",
+  "activity": "Anatomy only. No measured or predicted neural activity is bundled.",
+  "brainCount": 124289,
+  "brainView": "Classified optic, central and descending somata only; excludes VNC-associated and unclassified somata.",
+  "brainNativeBounds": {
+    "min": [
+      2468,
+      4758,
+      10154
+    ],
+    "max": [
+      93668,
+      53526,
+      44160
+    ]
+  }
+}
