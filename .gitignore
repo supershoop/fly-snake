@@ -11,3 +11,5 @@ outputs/
 __pycache__/
 *.pyc
 data/
+!public/data/
+!public/data/**

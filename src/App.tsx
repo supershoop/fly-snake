@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrainScene } from './components/BrainScene';
-import { FlyScene } from './components/FlyScene';
+import { FlyScene, type FlyCommand, type FlyDirection } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
 import { LesionLab } from './components/LesionLab';
@@ -34,6 +34,11 @@ export function App() {
   }, []);
   const activity = useMemo(() => frame ? { time: frame.time, values: frame.values } : null, [frame]);
   const fly = frame?.flies[frame.selected];
+  const flyCommand = useMemo<FlyCommand | null>(() => {
+    if (!frame || !fly) return null;
+    const directions: FlyDirection[] = ['left', 'up', 'right'];
+    return { direction: directions[fly.action], sequence: frame.time };
+  }, [frame?.time, fly?.action]);
   const recent = frame?.learning.scores.slice(-20) ?? [];
   const average = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
   useEffect(() => {
@@ -66,7 +71,7 @@ export function App() {
           {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
           <div className="panel-bottom">{frame ? `${frame.activeNeurons.toLocaleString('en-US')} of ${frame.totalNeurons.toLocaleString('en-US')} simulated neurons spiked in the last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`} <a href={asset('data/brain-atlas/NOTICE.md')}>Data notice ↗</a></div>
         </section>
-        <section className="panel fly-panel"><h2>03 / BODY <span>Flybody</span></h2><FlyScene/><div className="panel-bottom">Anatomical mesh · no motor simulation <span>Drag to rotate</span></div></section>
+        <section className="panel fly-panel"><h2>03 / FLY INPUTS <span>Rigged motor display</span></h2><FlyScene command={flyCommand}/><div className="panel-bottom">Live model move → animated key press <span>Drag to rotate</span></div></section>
       </div>
       <section className="model-status readout" aria-label="Brain output">
         <div><strong>DESCENDING NEURONS (Hz, left / right)</strong>
