@@ -23,6 +23,7 @@ STIM_WEIGHT = W_SYN * 250  # mV per Poisson event (Shiu: one event ~ one forced 
 # MaleCNS detects ~2x more synapses per connection than FlyWire, which W_SYN was tuned for. At 1.0 any input
 # recruits ~20k neurons (runaway); 0.35-0.45 is sparse, stimulus-specific and reproduces sugar GRN -> MN9.
 MALECNS_WEIGHT_SCALE = 0.4
+SHUFFLE_SEED = 0
 
 
 class Brain:
@@ -32,8 +33,9 @@ class Brain:
         self.n, self.batch, self.dt = connectome.n, batch, dt
         self.rng = torch.Generator(device=self.device).manual_seed(seed)
         post = connectome.post
-        if shuffled:  # control: same neurons, same out-degrees and weights, random targets
-            post = np.random.default_rng(seed).permutation(post)
+        if shuffled:  # control: same neurons, same out-degrees and weights, random targets.
+            # Fixed seed on purpose: `seed` only drives the input noise, so every shuffled Brain is the SAME scrambled network.
+            post = np.random.default_rng(SHUFFLE_SEED).permutation(post)
         weights = torch.sparse_coo_tensor(np.stack([post, connectome.pre]), connectome.weight * (W_SYN * weight_scale),
                                           (self.n, self.n)).coalesce()
         self.weights = weights.to_sparse_csr().to(self.device)

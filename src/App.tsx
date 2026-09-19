@@ -3,6 +3,7 @@ import { BrainScene } from './components/BrainScene';
 import { FlyScene } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
+import { LesionLab } from './components/LesionLab';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
 import { useLiveBrain, type Layout, type PolicyName } from './lib/live';
 
@@ -25,7 +26,7 @@ export function App() {
   const [error, setError] = useState('');
   const [paused, setPaused] = useState(false);
   const [held, setHeld] = useState<string | null>(null);
-  const { frame, status, send } = useLiveBrain();
+  const { frame, status, send, types } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
     void loadAtlas(abort.signal).then(setAtlas).catch(e => { if (!abort.signal.aborted) setError(String(e)); });
@@ -41,11 +42,6 @@ export function App() {
     window.addEventListener('keydown', press);
     return () => window.removeEventListener('keydown', press);
   }, [send]);
-  const toggleLesion = (pattern: string, everyFly: boolean) => {
-    const current = fly?.lesion ?? [];
-    const types = current.includes(pattern) ? current.filter(p => p !== pattern) : [...current, pattern];
-    send({ lesion: { fly: everyFly ? null : frame?.selected, types } });
-  };
   const stimulate = (name: string | null) => { setHeld(name); send({ stimulate: name ? { [name]: 1 } : null }); };
   const steerMax = Math.max(50, ...Object.values(fly?.steer ?? {}));
   return <>
@@ -87,12 +83,8 @@ export function App() {
             onPointerDown={() => stimulate(name)} onPointerUp={() => stimulate(null)} onPointerLeave={() => held === name && stimulate(null)}>{name}</button>)}</div>
         </div>
       </section>
-      <section className="model-status readout" aria-label="Lesions and live learning">
-        <div><strong>LESION · SILENCE A NEURON TYPE</strong><p>Silenced neurons can never spike. Click a board to choose which fly the buttons act on.</p>
-          <div className="controls">{(frame?.lesionPresets ?? []).map(pattern => <button key={pattern} aria-pressed={fly?.lesion.includes(pattern) ?? false}
-            onClick={event => toggleLesion(pattern, event.shiftKey)} title="Shift-click: apply to every fly">{pattern.replace('.*', '')}</button>)}
-            <button onClick={() => send({ lesion: { fly: null, types: [] } })}>Heal all</button></div>
-        </div>
+      <LesionLab frame={frame} types={types} send={send}/>
+      <section className="model-status readout learning" aria-label="Live learning">
         <div><strong>LIVE LEARNING</strong><p>{frame?.policy === 'learning' ? `${frame.learning.moves.toLocaleString('en-US')} moves of experience · last-20 average ${average.toFixed(1)}` : 'Choose “Learn live” to start from a blank readout.'}</p>
           <div className="controls"><button onClick={() => send({ policy: 'learning', learning: 'reset' })}>New untrained readout</button></div>
         </div>
