@@ -63,8 +63,12 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
 - Left LC10 -> DNa02 left ~250 Hz vs right 0 Hz (pursuit steering). Left LC4/LPLC2 -> giant fiber DNp01 ~390 Hz (escape),
   LC4 -> contralateral DNa01 (turn away). All emerge from wiring alone.
 - 32 games, live sim in the loop: trained readout **17.4** mean score (max 33) · hardwired, nothing trained **2.75** · random **0.03**.
-- Scrambled wiring scored **0.0** live although its readout was 93.8% accurate on isolated 100 ms responses. Suspected cause:
-  activity carrying over between moves in the scrambled network. **Unverified - do not put on a slide until checked.**
+- Scrambled wiring (`scripts/scrambled_check.py`, 16 games): with a readout trained on it, the scrambled network scores
+  **14.3** vs **18.8** for the real wiring. So a trained readout can play through almost any network that keeps left and right
+  inputs separable - **scrambled-vs-real with the trained readout is NOT evidence that the wiring matters.** The evidence is the
+  nothing-trained policy: real wiring 2.0-2.75, scrambled 0.00, and the lesion table below. (An earlier 0.00 for the scrambled
+  trained readout was a bug: the evaluation used a different shuffle than the training bank. Fixed: `SHUFFLE_SEED`.)
+  Carry-over between moves is harmless: real wiring 18.8 with carry-over vs 20.1 with the brain reset every move.
 - Live learning, 16 real brains sharing one blank readout: last-20 average 3.2 at 47 s, 5.1 at 94 s, 8.2 at 141 s (2.1 moves/s).
   Offline estimate (`live_learning_test.py`) reaches ~19. One fly alone learns too slowly; rates above 0.01 collapse.
 - Path search in the connectome (signed 2-hop paths): LC10 has **no direct synapses** onto DNa02; the food signal crosses
