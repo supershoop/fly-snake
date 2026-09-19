@@ -87,6 +87,12 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
   **Trained readout:** 19.75 intact vs 16-20 for every lesion including the random controls (12 random: 16.1), i.e. no lesion
   effect distinguishable from noise at 8 games - the readout reads many descending neurons and compensates. One outlier
   (AOTU025 alone: 11.0) needs more games before anyone interprets it.
+- Learning INSIDE the brain (`scripts/mushroom_body_check.py`): our visual stimuli activate **0 of 4,064 Kenyon cells**; a smell
+  (olfactory sensory neurons) activates ~2,500 and drives 60 MBONs at ~115 Hz. But driving 49 MBONs directly at ~70 Hz gives
+  **0 Hz in DNa02 and DNa01** - mushroom-body output does not reach steering in this model (anatomical LAL relays exist, mixed
+  sign, too weak). So plasticity at the 33,496 KC->MBON connections could not change how the snake steers. "Learn live" trains the
+  readout only - say so. Still possible as a side demo: odour conditioning with PAM/PPL1 dopamine and a KC->MBON rule, visible
+  as a changed MBON response, not as changed steering.
 - With DNa02 silenced the trained readout still steers (it uses other descending neurons); the hardwired policy cannot.
 - Known weakness to answer: the game shows the brain only 24 distinct situations and the readout copies a rule-based teacher,
   so "the readout plays, the brain relabels" is a fair criticism. Lesions, the untrained mode and real vision are the answers.
