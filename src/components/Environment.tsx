@@ -17,7 +17,7 @@ function Board({ arena, selectedSnake, label, onSelect }: { arena: ArenaState; s
 
 /** Snakes driven by the connectome simulation. The game only supplies sensory drive; every fly move comes from the brain's descending neurons. */
 export function Environment({ frame, onSelect }: { frame: LiveFrame | null; onSelect: (fly: number) => void }) {
-  if (!frame) return <div className="environment"><p>Waiting for the brain server</p><span>Start it with: python -m uvicorn flybrain.server:app --port 8000</span></div>;
+  if (!frame) return <div className="environment"><p>Waiting for the brain server</p><span>Start it from the repo folder with the project’s Python, not the system one: .venv\Scripts\python -m uvicorn flybrain.server:app --port 8000</span></div>;
   const chosen = frame.flies[frame.selected];
   return <div className="environment">
     <div className={`boards boards-${frame.arenas.length > 1 ? 'many' : 'one'}`}>
