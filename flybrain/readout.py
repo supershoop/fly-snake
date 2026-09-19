@@ -41,6 +41,36 @@ class HardwiredPolicy:
         return action, torch.nn.functional.one_hot(action, 3).float()
 
 
+class OnlineLearner(Policy):
+    """Starts blank and learns while playing, from reward alone (policy-gradient on the same linear readout).
+
+    After each move: weight += rate * reward * (chosen - probabilities) x descending-neuron activity.
+    All flies in the batch share one readout, so N flies gather experience N times faster. The brain never changes.
+    """
+
+    def __init__(self, features: int, device="cpu", rate: float = 0.005, seed: int = 0):
+        super().__init__(torch.zeros(3, features, device=device), torch.zeros(3, device=device))
+        self.rate, self.moves = rate, 0
+        self.rng = torch.Generator(device=device).manual_seed(seed)
+        self.last = None
+
+    def act(self, dn_counts: torch.Tensor):
+        probabilities = self.logits(dn_counts).softmax(dim=1)
+        action = torch.multinomial(probabilities, 1, generator=self.rng)[:, 0]
+        self.last = (torch.log1p(dn_counts.T), probabilities, action)
+        return action, probabilities
+
+    def learn(self, rewards: torch.Tensor):
+        """rewards [B] for the moves chosen by the last act(); zero = no feedback for that fly."""
+        if self.last is None:
+            return
+        inputs, probabilities, action = self.last
+        error = (torch.nn.functional.one_hot(action, 3).float() - probabilities) * rewards.to(inputs.device)[:, None]
+        self.weight += self.rate * error.T @ inputs
+        self.bias += self.rate * error.sum(dim=0)
+        self.moves += len(action)
+
+
 def fit(features: torch.Tensor, labels: torch.Tensor, epochs: int = 300, weight_decay: float = 1e-3) -> Policy:
     """features [M, R] spike counts, labels [M] actions."""
     inputs = torch.log1p(features)

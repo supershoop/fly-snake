@@ -39,7 +39,20 @@ class Brain:
         self.weights = weights.to_sparse_csr().to(self.device)
         self.delay_steps = max(1, round(T_DELAY / dt))
         self.refractory_steps = max(1, round(T_REFRACTORY / dt))
+        self.silenced = None
         self.reset()
+
+    def resize(self, batch: int):
+        """Change how many independent brains run in parallel (clears state and lesions)."""
+        self.batch, self.silenced = batch, None
+        self.reset()
+
+    def set_lesion(self, silenced: torch.Tensor | None):
+        """bool [N] (every brain) or [N, B] (per brain): these neurons can never spike. None = intact."""
+        if silenced is not None:
+            silenced = silenced.to(self.device)
+            silenced = silenced[:, None].expand(-1, self.batch) if silenced.dim() == 1 else silenced
+        self.silenced = silenced if silenced is not None and bool(silenced.any()) else None
 
     def reset(self):
         shape = (self.n, self.batch)
@@ -71,6 +84,8 @@ class Brain:
             self.v += torch.where(active, (self.g - (self.v - V_REST)) * (self.dt / TAU_M), 0.0)
             self.g -= self.g * (self.dt / TAU_SYN)
             spikes = (self.v > V_THRESHOLD) & active
+            if self.silenced is not None:
+                spikes &= ~self.silenced
             self.v[spikes] = V_RESET
             self.refractory = torch.where(spikes, self.refractory_steps, (self.refractory - 1).clamp(min=0)).to(torch.int16)
             spikes = spikes.float()
