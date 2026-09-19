@@ -98,7 +98,7 @@ def main():
         parser.error("Output must be a separate candidate; preserve the baseline")
     if args.run.exists() and not args.resume:
         parser.error("Run directory exists; choose a new --run or use --resume")
-    if args.resume and (args.run / "report.json").exists():
+    if args.resume and any((args.run / name).exists() for name in ("report.json", "final-test.json")):
         parser.error("This run has already used its final test set; start a separate experiment")
     torch.set_num_threads(1)
     started = time.perf_counter()

@@ -56,6 +56,11 @@ This fork also includes the Fly Snake simulator and trained descending-neuron
 readout. See [survival training and measured results](docs/TRAINING.md) for the
 training command, comparison with the original model, and remaining limitations.
 
+For reward-driven training over thousands of generations, see
+[evolution training and independent evaluation](docs/EVOLUTION.md). The trainer
+starts random linear readouts, evolves them from game scores, and keeps the
+connectome fixed. The saved experimental winner has not replaced the demo model.
+
 **Retrain existing readout** starts live learning from a copy of the trained
 model; **Start blank** starts over. Positive and negative
 stimuli train the move displayed when clicked, with adjustable strength and

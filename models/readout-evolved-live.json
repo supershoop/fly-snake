@@ -1,0 +1,95 @@
+{
+  "evaluation": "continuous brain simulation; paired seeds and identical tail-escape sensing",
+  "device": "cpu",
+  "max_moves": 250,
+  "games_per_model": 4,
+  "complete": true,
+  "results": {
+    "candidate": {
+      "games": [
+        {
+          "game_seed": 90000,
+          "brain_seed": 1729,
+          "food": 25,
+          "moves": 250,
+          "end_reason": null,
+          "alive_at_limit": true
+        },
+        {
+          "game_seed": 90001,
+          "brain_seed": 1730,
+          "food": 9,
+          "moves": 95,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "game_seed": 90002,
+          "brain_seed": 1731,
+          "food": 23,
+          "moves": 250,
+          "end_reason": null,
+          "alive_at_limit": true
+        },
+        {
+          "game_seed": 90003,
+          "brain_seed": 1732,
+          "food": 15,
+          "moves": 172,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        }
+      ],
+      "mean_score": 18.0,
+      "collisions": 2,
+      "starved": 0,
+      "alive_at_limit": 2
+    },
+    "baseline": {
+      "games": [
+        {
+          "game_seed": 90000,
+          "brain_seed": 1729,
+          "food": 26,
+          "moves": 250,
+          "end_reason": null,
+          "alive_at_limit": true
+        },
+        {
+          "game_seed": 90001,
+          "brain_seed": 1730,
+          "food": 24,
+          "moves": 250,
+          "end_reason": null,
+          "alive_at_limit": true
+        },
+        {
+          "game_seed": 90002,
+          "brain_seed": 1731,
+          "food": 26,
+          "moves": 250,
+          "end_reason": null,
+          "alive_at_limit": true
+        },
+        {
+          "game_seed": 90003,
+          "brain_seed": 1732,
+          "food": 10,
+          "moves": 246,
+          "end_reason": "starvation",
+          "alive_at_limit": false
+        }
+      ],
+      "mean_score": 21.5,
+      "collisions": 0,
+      "starved": 1,
+      "alive_at_limit": 3
+    }
+  },
+  "model_hashes": {
+    "candidate": "da365375e2a40ff06417c9ccd43ec0d22cf500d2bb84b9ea36b2908318b10708",
+    "baseline": "5948178feb44f033bedb6eb6acef976345c2bca3bb64cd8f3848670f42c0d580"
+  },
+  "limitations": "Small censored smoke comparison, not a full-game performance guarantee.",
+  "elapsed_seconds": 1445.3265562999877
+}

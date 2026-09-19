@@ -64,6 +64,11 @@ def main():
                               "Games still alive at the move cap are censored, not wins."]}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     write_json(args.report, report)
+    run = Path(training["config"]["run"])
+    if ((run / "config.json").exists()
+            and json.loads((run / "config.json").read_text()) == training["config"]):
+        write_json(run / "final-test.json", {"model_sha256": hashes["candidate"],
+                   "test_bank_sha256": report["response_bank_sha256"], "report": str(args.report)})
     print(json.dumps(report, indent=2), flush=True)
 
 

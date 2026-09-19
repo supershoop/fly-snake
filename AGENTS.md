@@ -24,6 +24,8 @@ First start builds `data/connectome-cache.npz` (~1 min). Tuned on an 8 GB RTX 40
 Other commands: `scripts/train_readout.py [--shuffled]` (long-game target training + transition response bank + live scores),
 `scripts/train_readout.py --trials 32 --evaluation bank` (CPU-friendly training with explicitly labelled bank estimates),
 `scripts/evaluate_survival.py --games 4 --max-moves 400` (saved readout vs original, continuous brain),
+`scripts/train_evolution.py --generations 2000 --validation-only --run outputs/evolution-new` (reward-driven readout evolution, CPU-friendly bank estimates; optional `requirements-training.txt`; see `docs/EVOLUTION.md`),
+`scripts/evaluate_evolution.py --model models/readout-evolved-ridge100.npz --games 4 --max-moves 250 --game-seed 90000` (same-sensing continuous-brain comparison with the current model),
 `scripts/probe_channels.py` (which senses steer), `scripts/bench_brain.py` (sanity + speed),
 `scripts/live_learning_test.py` (offline test of on-stage learning, no GPU),
 `FLY_RECORD=frames.jsonl` on the server records a session; `scripts/replay_server.py frames.jsonl` replays it with no GPU.
@@ -39,6 +41,7 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 | `flybrain/snake.py` | `Arena`: any number of fly/human snakes on one board, relative actions, rewards, egocentric encoder (24 situations); legacy sensing available via `lookahead=False` |
 | `flybrain/navigation.py` | Threat observations include loss of a route to the moving tail after a move, accounting for growth; never overrides actions |
 | `flybrain/training.py`, `flybrain/response_bank.py` | Learn target preferences from long-game food scores; collect real DN responses with state carried between inputs |
+| `flybrain/evolution.py`, `flybrain/evolution_game.py`, `scripts/train_evolution.py` | Mutation/selection of random readouts from game rewards, compiled canonical solo rollouts, separate validation and resumable checkpoints; scores are bank estimates |
 | `flybrain/readout.py` | `Policy` (linear, fitted offline), `OnlineLearner` (same readout, learns live from reward), `HardwiredPolicy` (DNa02/DNa01 left-minus-right, nothing trained) |
 | `flybrain/feedback.py`, `src/components/LiveTraining.tsx` | Reward/punishment for a displayed move; delayed feedback trains saved decisions, with receipts and stale-decision rejection |
 | `flybrain/server.py` | FastAPI WebSocket live loop: layouts, policies, per-fly lesions, sensor input, feedback, human control |
@@ -76,6 +79,7 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
 - Historical baseline with adjacent-cell sensing, 32 games, live sim in the loop: trained readout **17.4** mean score (max 33) · hardwired **2.75** · random **0.03**.
 - Survival retraining: 64 held-out games, 1,600-move limit, **sampled response-bank estimates**: original **11.08**, new senses alone **14.30**, retrained **54.34** mean food score; collisions **64 / 64 / 0**. Retrained games still include 45 starvation timeouts. These are not live-brain scores. See `docs/TRAINING.md` and `models/readout-real-training.json`.
 - Separate continuous-brain smoke check, four new seeds, 275 recorded moves: original mean **12.0**, **4/4 collisions**; retrained mean **24.5**, **1/4 collisions**, three games still alive at the cap. This is a small censored comparison, not a guarantee. See `models/readout-real-live-evaluation.json`.
+- Reward-driven evolution from random readouts: 2,000 generations, 227,784 actual training games. On a fresh neural-response bank and 128 new games, evolved **32.87** vs current **36.94** mean food (bank estimates). A separate continuous-brain check, four paired seeds with a 250-move cap, gave evolved **18.0** vs current **21.5**, with **2 vs 0 collisions** and **2 vs 3 still alive**. The experimental readout did not replace the default. See `docs/EVOLUTION.md` and `models/readout-evolved-*.json`.
 - Scrambled wiring (`scripts/scrambled_check.py`, 16 games): with a readout trained on it, the scrambled network scores
   **14.3** vs **18.8** for the real wiring. So a trained readout can play through almost any network that keeps left and right
   inputs separable - **scrambled-vs-real with the trained readout is NOT evidence that the wiring matters.** The evidence is the

@@ -23,7 +23,7 @@ from flybrain.snake import Snake
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", type=Path, default=Path("models/readout-evolved-2000.npz"))
+    parser.add_argument("--model", type=Path, default=Path("models/readout-evolved.npz"))
     parser.add_argument("--baseline", type=Path, default=Path("models/readout-real.npz"))
     parser.add_argument("--games", type=int, default=4)
     parser.add_argument("--max-moves", type=int, default=250)
