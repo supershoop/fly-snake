@@ -5,3 +5,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 outputs/
+
+# python / connectome data
+.venv/
+__pycache__/
+*.pyc
+data/
