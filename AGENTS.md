@@ -67,6 +67,15 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
   activity carrying over between moves in the scrambled network. **Unverified - do not put on a slide until checked.**
 - Live learning, 16 real brains sharing one blank readout: last-20 average 3.2 at 47 s, 5.1 at 94 s, 8.2 at 141 s (2.1 moves/s).
   Offline estimate (`live_learning_test.py`) reaches ~19. One fly alone learns too slowly; rates above 0.01 collapse.
+- Path search in the connectome (signed 2-hop paths): LC10 has **no direct synapses** onto DNa02; the food signal crosses
+  ~6 cells in the anterior optic tubercle (AOTU025, AOTU012, AOTU015 - the known pursuit pathway). LC4 -> giant fiber DNp01 is
+  direct (3,782 synapses, a textbook circuit). LC4 -> contralateral DNa01 runs through PVLP141 and PVLP137.
+  `scripts/lesion_scores.py` silences these and scores play; the web page's Lesion lab does it live (`src/components/LesionLab.tsx`).
+- Lesion table (`lesion_scores.py`, 8 games each, live sim). **Nothing-trained policy:** intact 2.00 · 12 AOTU relay cells
+  silenced 0.38 · 2 DNa02 cells silenced 0.00 (dies in 6 moves) · 12 random neurons 2.00 · 2,000 random neurons 2.25.
+  **Trained readout:** 19.75 intact vs 16-20 for every lesion including the random controls (12 random: 16.1), i.e. no lesion
+  effect distinguishable from noise at 8 games - the readout reads many descending neurons and compensates. One outlier
+  (AOTU025 alone: 11.0) needs more games before anyone interprets it.
 - With DNa02 silenced the trained readout still steers (it uses other descending neurons); the hardwired policy cannot.
 - Known weakness to answer: the game shows the brain only 24 distinct situations and the readout copies a rule-based teacher,
   so "the readout plays, the brain relabels" is a fair criticism. Lesions, the untrained mode and real vision are the answers.
