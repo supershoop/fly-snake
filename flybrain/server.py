@@ -18,7 +18,7 @@ import numpy as np
 import torch
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from .brain import Brain
+from .brain import Brain, default_device
 from .audience import feedback_urls, install_audience
 from .operator_control import install_operator
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
@@ -46,7 +46,7 @@ class Experiment:
     def __init__(self):
         self.connectome = load_connectome()
         self.channels = build_channels(self.connectome)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = default_device()
         self.stim_index = self.channels.stim_index.to(self.device)
         self.readout_index = self.channels.readout_index.to(self.device)
         atlas_ids = np.fromfile(ATLAS / "ids.bin", dtype="<u4")[np.fromfile(ATLAS / "groups.bin", dtype="u1") < 3]
@@ -89,7 +89,8 @@ class Experiment:
 
     def brain(self) -> Brain:
         if self.wiring not in self.brains:
-            self.brains[self.wiring] = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled")
+            self.brains[self.wiring] = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled",
+                                              device=str(self.device))
             self.apply_lesions()
         return self.brains[self.wiring]
 

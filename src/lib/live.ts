@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type Layout = 'solo' | 'swarm' | 'versus' | 'arena';
 export type PolicyName = 'trained' | 'hardwired' | 'instinct' | 'learning';
 export type Wiring = 'real' | 'shuffled';
-export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number };
+export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number; highScore: number };
 export type ArenaState = { size: number; foods: [number, number][]; snakes: SnakeState[] };
 export type FlyState = {
   // danger_* includes immediate collision and losing the route to the moving tail.

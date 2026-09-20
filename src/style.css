@@ -204,6 +204,30 @@ body::before {
 .segmented button:hover:not(:disabled), .controls button:hover:not(:disabled), .sensory-buttons button:hover:not(:disabled), .human-controls button:hover:not(:disabled), .brain-view-controls button:hover:not(:disabled), .board-select:hover:not(:disabled) { box-shadow: 2px 3px 0 var(--ink); }
 .brain-view-controls button:hover:not(:disabled) { box-shadow: 2px 3px 0 var(--pink); }
 
+/* Shared fly-pink surface for every gradient card. */
+.experiment-controls, .panel, .brain-panel, .fly-panel, .signal-panel, .lab-disclosure {
+  background-color: #3b4b52;
+  background-image: radial-gradient(145% 155% at 0% 0%, #96616bd9 0%, #765969c8 42%, transparent 70%);
+}
+.environment-panel .game-scorebar {
+  position: relative; z-index: 4; grid-template-columns: 1.25fr repeat(4, minmax(0, .8fr)); gap: 12px;
+  min-height: 72px; padding: 11px 24px; border-bottom: 2px solid #ffe8d09c; color: var(--cream); background: #113537d9;
+}
+.environment-panel .game-scorebar .eyebrow { color: #ffe8d0b8; }
+.environment-panel .game-scorebar strong { color: var(--cream); font-size: 20px; line-height: 1.35; }
+.environment-panel .game-scorebar .selected-fly strong { padding-top: 2px; font-size: 17px; }
+.body-caption em { font-size: 34px; }
+.body-caption > span { font-size: 13px; }
+@media (max-width: 850px) {
+  .environment-panel .game-scorebar { padding-inline: 20px; }
+}
+@media (max-width: 600px) {
+  .environment-panel .game-scorebar { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 14px; }
+  .environment-panel .game-scorebar strong { font-size: 16px; }
+  .body-caption em { font-size: 25px; }
+  .body-caption > span { font-size: 11px; }
+}
+
 /* Leaner workbench headers and a roomier fly panel. */
 .brain-reset { min-height: 36px; padding: 7px 13px; border-color: var(--cream); color: var(--cream); background: var(--ink); font-size: 11px; }
 .brain-reset:hover:not(:disabled) { box-shadow: 2px 3px 0 var(--pink); }
@@ -224,4 +248,54 @@ body::before {
   .body-caption { top: 25px; right: auto; left: 18px; max-width: 43%; }
   .body-caption em { font-size: 20px; }
   .body-caption > span { font-size: 9px; }
+}
+
+/* The board is framed as a tiny desktop game, with a little breathing room below the simulation summary. */
+.board-stage { align-items: stretch; padding: 18px 30px 0; }
+.game-window { position: relative; display: flex; flex-direction: column; align-self: stretch; width: auto; max-width: 100%; min-height: 0; aspect-ratio: .94; margin: 0 auto; padding: 7px; border: 2px solid var(--cream); border-radius: 5px; background: #113537cf; box-shadow: 4px 4px 0 #1135378f; }
+.swarm-stage .game-window { width: min(100%, 490px); aspect-ratio: auto; }
+.game-window-bar { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; flex: none; width: calc(100% + 18px); min-height: 29px; box-sizing: border-box; margin: -11px -9px 9px; padding: 5px 7px 5px 10px; border: 2px solid var(--cream); border-radius: 5px 5px 3px 3px; color: var(--cream); background: #37505c; font-family: var(--mono); font-size: 9px; font-weight: 800; letter-spacing: .06em; }
+.window-controls { display: inline-flex; align-items: stretch; align-self: stretch; margin: -5px -7px -5px 0; }
+.window-controls i { display: grid; place-items: center; width: 25px; border-left: 1px solid #ffe8d07d; color: #ffe8d0d6; font-family: Arial, sans-serif; font-size: 13px; font-style: normal; font-weight: 400; line-height: 1; }
+.window-controls i:last-child { color: var(--cream); background: #96616b; }
+.game-window .boards { width: 100%; height: auto; min-height: 0; }
+.game-window .boards-one { flex: 1 1 auto; }
+.game-window .boards-many { flex: 1 1 auto; max-width: none; }
+.game-window .single-board svg { box-shadow: none; }
+
+/* Sensory channels read as their own live instrument instead of a loose row of tags. */
+.senses { gap: 7px; margin: 0 24px 16px; padding: 10px 12px; border: 1px solid #ffe8d08f; border-radius: 10px; background: #1135378f; }
+.senses > span { min-height: 28px; box-sizing: border-box; padding: 6px 9px; font-size: 11px; transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.senses > .senses-label { margin-right: 3px; padding-left: 1px; color: var(--pink); font-size: 12px; letter-spacing: .06em; }
+.senses i { width: 6px; height: 6px; transition: background-color 160ms ease, box-shadow 160ms ease; }
+.senses > span.on { box-shadow: 0 0 0 1px #f76f8e66, 0 0 13px #f76f8e42; }
+.senses > span.on i { box-shadow: 0 0 7px #ffe8d0c9; }
+
+@media (max-width: 600px) {
+  .board-stage { padding: 16px 16px 0; }
+  .game-window { width: auto; max-width: 100%; aspect-ratio: .94; padding: 6px; }
+  .swarm-stage .game-window { width: min(100%, 360px); aspect-ratio: auto; }
+  .game-window-bar { width: calc(100% + 14px); min-height: 27px; margin: -9px -7px 7px; font-size: 8px; }
+  .window-controls i { width: 22px; }
+  .senses { gap: 5px; margin: 0 16px 15px; padding: 8px 9px; }
+  .senses > span { min-height: 25px; padding: 5px 7px; font-size: 9px; }
+  .senses > .senses-label { font-size: 10px; }
+}
+
+.environment-control { flex: 2 1 0; }
+.brain-control { flex: 1 1 0; }
+.environment-control .segmented button { font-size: 14px; }
+.brain-select { width: 100%; min-height: 47px; padding: 8px 48px 8px 13px; border: 2px solid var(--ink); border-radius: 10px; color: var(--ink); background-color: var(--cream); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23113537' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 20px center; background-size: 12px 8px; appearance: none; font: 800 12px var(--mono); cursor: pointer; }
+.brain-select:hover:not(:disabled) { border-color: var(--pink); }
+.brain-select:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+.brain-select:disabled { cursor: wait; opacity: .7; }
+
+.game-window { border-radius: 5px 5px 14px 14px; }
+.senses { text-transform: uppercase; letter-spacing: .045em; }
+.senses > span { background-color: #1135378f; transition: color 220ms ease-in-out, background-color 220ms ease-in-out, border-color 220ms ease-in-out, box-shadow 220ms ease-in-out; will-change: color, background-color; }
+.senses > .senses-label { background-color: transparent; }
+.senses > span.on { background-color: var(--pink); }
+
+@media (max-width: 600px) {
+  .environment-control .segmented button { font-size: 11px; }
 }

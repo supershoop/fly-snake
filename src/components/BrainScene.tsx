@@ -4,7 +4,7 @@ import type { ActivityFrame } from "../lib/replay";
 import type { Atlas } from "../lib/atlas";
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
-const INITIAL_ZOOM = 1.28;
+const INITIAL_ZOOM = 2.1;
 
 export function BrainScene({ atlas, frame, silenced = [], resetVersion = 0 }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[]; resetVersion?: number }) {
   const signal = useRef(frame);

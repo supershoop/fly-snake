@@ -85,7 +85,7 @@ Client -> server, any combination of keys in one message (applied between moves)
 | `{"stimulate": {"food_L": 1}\|null}` | manual override of all senses; game holds still while set |
 | `{"human": "up"\|"down"\|"left"\|"right"}`, `{"select": i}`, `{"paused": bool}` | human snake; which fly's brain is shown; pause |
 
-Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `arenas[]` (boards, foods, snakes), `flies[]`
+Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `arenas[]` (boards, foods, snakes; each snake includes `score`, `lastScore`, and session `highScore`), `flies[]`
 (per fly: `channels`, `action`, `probabilities`, `reward`, `feedbackEligible`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
 `move` (monotonically increasing decision ID), `values` (selected fly's brain activity by bodyId),
 `learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`.

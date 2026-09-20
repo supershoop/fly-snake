@@ -11,13 +11,29 @@ function Board({ arena, selectedSnake, label, onSnake }: { arena: ArenaState; se
   const id = useId();
   const extent = arena.size * CELL;
   return <svg viewBox={`0 0 ${extent} ${extent}`} role="img" aria-label={label}>
-    <defs><pattern id={id} width={CELL} height={CELL} patternUnits="userSpaceOnUse"><path d={`M${CELL} 0H0V${CELL}`} fill="none" stroke="var(--blue)" strokeWidth=".65"/></pattern></defs>
-    <rect width={extent} height={extent} fill="var(--ink)"/>
+    <defs><pattern id={id} width={CELL * 2} height={CELL * 2} patternUnits="userSpaceOnUse">
+      <rect width={CELL * 2} height={CELL * 2} fill="var(--ink)"/>
+      <rect width={CELL} height={CELL} fill="var(--blue)" opacity=".22"/>
+      <rect x={CELL} y={CELL} width={CELL} height={CELL} fill="var(--blue)" opacity=".22"/>
+      <path d={`M${CELL} 0V${CELL * 2}M0 ${CELL}H${CELL * 2}M0 0H${CELL * 2}V${CELL * 2}H0Z`} fill="none" stroke="var(--cream)" strokeOpacity=".15" strokeWidth=".65"/>
+    </pattern></defs>
     <rect width={extent} height={extent} fill={`url(#${id})`}/>
     {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="var(--pink)" opacity=".18"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="var(--pink)"/></g>)}
-    {arena.snakes.map((snake, s) => snake.body.map(([x, y], index) => <rect key={`${s}-${index}`} onClick={onSnake && snake.kind === 'fly' ? () => onSnake(s) : undefined} style={onSnake && snake.kind === 'fly' ? { cursor: 'pointer' } : undefined} x={x * CELL + 2} y={y * CELL + 2} width={CELL - 4} height={CELL - 4} rx="5"
-      fill={snake.kind === 'human' ? (index === 0 ? 'var(--cream)' : 'var(--mauve)') : s === selectedSnake ? (index === 0 ? 'var(--pink)' : 'var(--mauve)') : COLORS[s % COLORS.length]}
-      stroke={index === 0 ? 'var(--cream)' : 'none'} strokeWidth="1.4" opacity={snake.alive ? 1 - Math.min(.45, index * .02) : .3}/>))}
+    {arena.snakes.map((snake, s) => {
+      const [headX, headY] = snake.body[0] ?? [0, 0];
+      const selected = s === selectedSnake;
+      const bodyColor = snake.kind === 'human' || selected ? 'var(--mauve)' : COLORS[s % COLORS.length];
+      const headColor = snake.kind === 'human' ? 'var(--cream)' : selected ? 'var(--pink)' : bodyColor;
+      const points = snake.body.map(([x, y]) => `${(x + .5) * CELL},${(y + .5) * CELL}`).join(' ');
+      const interactive = onSnake && snake.kind === 'fly';
+      const opacity = snake.alive ? 1 : .3;
+      return <g key={s} onClick={interactive ? () => onSnake(s) : undefined} style={interactive ? { cursor: 'pointer' } : undefined} opacity={opacity}>
+        {/* One rounded stroke makes adjacent grid cells read as a single moving body. */}
+        {snake.body.length > 1 && <polyline points={points} fill="none" stroke={bodyColor} strokeWidth={CELL - 4} strokeLinecap="round" strokeLinejoin="round"/>}
+        <circle cx={(headX + .5) * CELL} cy={(headY + .5) * CELL} r={(CELL - 4) / 2} fill={headColor} stroke="var(--cream)" strokeWidth="1.4"/>
+        {snake.body.length > 1 && <polyline points={points} fill="none" stroke="var(--cream)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".2"/>}
+      </g>;
+    })}
   </svg>;
 }
 
@@ -43,9 +59,12 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
       <div><span className="eyebrow">Food eaten</span><strong className="score-value">{snake?.score ?? '—'}</strong></div>
       <div><span className="eyebrow">{human ? 'Your score' : 'Last game'}</span><strong className={human ? 'human-score' : ''}>{human ? human.score : snake?.games ? snake.lastScore : '—'}</strong></div>
       <div><span className="eyebrow">Games</span><strong>{snake?.games ?? '—'}</strong></div>
+      <div><span className="eyebrow">High score</span><strong>{snake?.highScore ?? snake?.score ?? '—'}</strong></div>
     </div>
     <div className={`board-stage ${many ? 'swarm-stage' : ''}`}>
-      <div className={`boards boards-${many ? 'many' : 'one'}`}>
+      <div className="game-window">
+        <div className="game-window-bar"><span>fly_snake.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
+        <div className={`boards boards-${many ? 'many' : 'one'}`}>
         {frame.arenas.map((arena, a) => {
           const selected = chosen?.arena === a;
           const label = `Board ${a + 1}, scores ${arena.snakes.map(s => s.score).join(', ')}`;
@@ -57,6 +76,7 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
             {board}<span><span>Fly {String(a + 1).padStart(2, '0')}{isLesioned ? ' · lesioned' : ''}</span><strong>{arena.snakes[0]?.score ?? 0}</strong></span>
           </button> : <div key={a} className={`single-board ${isPicked ? 'is-picked' : ''} ${isLesioned ? 'is-lesioned' : ''}`}>{board}</div>;
         })}
+        </div>
       </div>
       {(paused || frame.manual || (pending && (pending.layout !== undefined || pending.policy !== undefined || pending.wiring !== undefined))) && <div className={`game-overlay ${pending ? 'is-pending' : ''}`}><span>{pending ? <><i className="spinner"/>{pending.message}<small>Updating the simulation…</small></> : paused ? <>Simulation paused<small>Resume to continue the game</small></> : <>Sensory override<small>Release the input to continue</small></>}</span></div>}
     </div>
