@@ -28,6 +28,7 @@ from .leaderboard import Leaderboard, clean_name
 from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
 from .vision import VisionDisplay, VisionUntrained, build_retina
 from .snake import Arena, HEADING_NAMES
+from .thermal import ThermalGuard
 
 warnings.filterwarnings("ignore")
 WINDOW_MS = 100.0
@@ -46,7 +47,7 @@ LAYOUTS = {  # name -> list of arenas, each (board size, snake kinds, foods)
 # ~6,000 neurons and drive the punishment dopamine neurons PPL1 (~80 Hz). Neither moves DNa02 or the giant fiber.
 EVENT_SOURCES = {"taste": r"LB3.*|claw_tpGRN", "pain": r"HRN_.*|TRN_.*"}
 EVENT_NAMES = list(EVENT_SOURCES)
-LESION_PRESETS = ["LC10.*", "LC4", "LPLC2", "DNa02", "DNa01", "DNp01"]
+LESION_PRESETS = ["DNa02", "DNp01", "AOTU0(25|12|15)"]
 
 
 class Experiment:
@@ -345,6 +346,8 @@ class Experiment:
 
 app = FastAPI()
 clients: set[WebSocket] = set()
+visible: dict[WebSocket, bool] = {}  # pages report whether their tab is showing; clients that never report count as watching
+guard = ThermalGuard()
 experiment: Experiment | None = None
 audience = install_audience(app, lambda: experiment)
 operator = install_operator(app, lambda: experiment)
@@ -354,13 +357,23 @@ async def loop():
     global experiment
     experiment = await asyncio.to_thread(Experiment)
     record = open(os.environ["FLY_RECORD"], "a") if os.environ.get("FLY_RECORD") else None
+    last_message = None
     while True:
-        if (not clients and not audience.clients) or experiment.paused:
+        unwatched = bool(clients) and not any(visible.get(client, True) for client in clients)  # every page is minimised or in a background tab
+        if (not clients and not audience.clients) or experiment.paused or unwatched or guard.cooling:
             await audience.publish(paused=experiment.paused)
+            if guard.cooling and last_message is not None:  # keep the page informed while the GPU cools down
+                last_message["thermal"] = guard.status()
+                for client in list(clients):
+                    with contextlib.suppress(Exception):
+                        await client.send_text(json.dumps(last_message))
+                await asyncio.sleep(1.0)
             await asyncio.sleep(0.1)
             continue
         try:
             frame = await asyncio.to_thread(experiment.tick)
+            frame["thermal"] = guard.status()
+            last_message = frame
             message = json.dumps(frame)
         except FileNotFoundError:  # e.g. scrambled-wiring readout not trained yet: scripts/train_readout.py --shuffled
             experiment.wiring, experiment.policy_name = "real", "trained"
@@ -378,10 +391,13 @@ async def loop():
                     with contextlib.suppress(Exception):
                         await client.send_text(json.dumps(felt))
             await asyncio.sleep(experiment.death_hold)  # let the displayed fly's death scene play out
+        if guard.gap():
+            await asyncio.sleep(guard.gap())  # running hot: leave a gap between moves so the GPU gets a rest
 
 
 @app.on_event("startup")
 async def start():
+    asyncio.create_task(guard.watch(lambda: f"{experiment.layout} x{len(experiment.flies)} {experiment.policy_name}" if experiment else "starting"))
     asyncio.create_task(loop())
 
 
@@ -403,6 +419,8 @@ async def socket(websocket: WebSocket):
                 if "human" in message:
                     experiment.queue_human_move(message["human"])
                     message = {key: value for key, value in message.items() if key != "human"}
+                if "visible" in message:
+                    visible[websocket] = bool(message.pop("visible"))
                 if "paused" in message:
                     experiment.paused = bool(message["paused"])
                 if message:
@@ -411,3 +429,4 @@ async def socket(websocket: WebSocket):
         pass
     finally:
         clients.discard(websocket)
+        visible.pop(websocket, None)

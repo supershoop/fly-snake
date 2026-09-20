@@ -30,6 +30,8 @@ export type LiveFrame = {
   /** Versus layout only. One round = one human life; `fly` is the fly's score in that same round. */
   leaderboard?: { player: string; top: { name: string; human: number; fly: number; brain: string; when: number }[]; rounds: number; humanWins: number; flyWins: number } | null;
   silenced?: number[]; silencedTotal?: number;
+  /** GPU temperature and what the server's thermal guard is doing about it. */
+  thermal?: { gpu: number | null; state: 'ok' | 'slow' | 'cooling' | 'off'; slowAt: number; pauseAt: number };
   /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
   silencedByFly?: Record<string, number[]>;
 };
@@ -134,7 +136,7 @@ export function useLiveBrain() {
     const connect = () => {
       const ws = new WebSocket(url());
       socket.current = ws;
-      ws.onopen = () => setStatus('live');
+      ws.onopen = () => { setStatus('live'); ws.send(JSON.stringify({ visible: !document.hidden })); };
       ws.onmessage = event => {
         const message = JSON.parse(event.data);
         if (message.hello) { setTypes(message.hello.types); setVision(message.hello.vision ?? null); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
@@ -149,7 +151,11 @@ export function useLiveBrain() {
       ws.onclose = () => { if (closed) return; asked.current = false; setStatus('offline'); setFrame(null); setPending(null); setFeedbackUrls([]); retry = window.setTimeout(connect, 1500); };
     };
     connect();
-    return () => { closed = true; clearTimeout(retry); socket.current?.close(); };
+    // The simulation idles while every page is hidden (minimised or in a background tab). Losing focus alone does not count:
+    // during a demo the page stays on screen while another window has the keyboard.
+    const reportVisibility = () => { if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify({ visible: !document.hidden })); };
+    document.addEventListener('visibilitychange', reportVisibility);
+    return () => { document.removeEventListener('visibilitychange', reportVisibility); closed = true; clearTimeout(retry); socket.current?.close(); };
   }, []);
   const send = useCallback((message: object) => {
     if (socket.current?.readyState !== WebSocket.OPEN) return;

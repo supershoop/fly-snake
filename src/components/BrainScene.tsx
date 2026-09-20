@@ -16,8 +16,10 @@ const SILENCED = "#9085e9";
 const FULL_RATE_HZ = 150;
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
+const INITIAL_ZOOM = 1.28;
+
 /** `pathway` (optional) overlays the sensory-to-steering circuits on the anatomy: the real cells, lines between them, live rates. */
-export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[]; pathway?: VisionStatic["pathway"] | null; pathwayRates?: Record<string, number> }) {
+export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates, resetVersion = 0 }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[]; pathway?: VisionStatic["pathway"] | null; pathwayRates?: Record<string, number>; resetVersion?: number }) {
   const signal = useRef(frame);
   const lesion = useRef(silenced);
   const rates = useRef(pathwayRates);
@@ -25,6 +27,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
   const resetView = useRef<(() => void) | null>(null);
   const repaint = useRef<(() => void) | null>(null);
   useEffect(() => { signal.current = frame; lesion.current = silenced; rates.current = pathwayRates; repaint.current?.(); }, [frame, silenced, pathwayRates]);
+  useEffect(() => { resetView.current?.(); }, [resetVersion]);
   const host = useRef<HTMLDivElement>(null);
 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -42,7 +45,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
     element.appendChild(renderer.domElement);
     const anatomy = new THREE.Group();
     scene.add(anatomy);
-    resetView.current = () => { anatomy.rotation.set(0, 0, 0); camera.zoom = 1; fit(); };
+    resetView.current = () => { anatomy.rotation.set(0, 0, 0); camera.zoom = INITIAL_ZOOM; fit(); };
     let geometry: THREE.BufferGeometry | undefined;
     let material: THREE.ShaderMaterial | undefined;
     let size = new THREE.Vector3(5, 2, 1);
@@ -53,7 +56,9 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
       const aspect = Math.max(1, width) / Math.max(1, height);
       // Frame the whole atlas once, rather than changing the camera scale as it rotates.
       const radius = size.length() / 2;
-      const halfHeight = Math.max(radius, radius / aspect) * 1.08;
+      // Keep a generous fixed frame: it should contain the full atlas at reset
+      // and after a drag, but never re-fit while the user is rotating it.
+      const halfHeight = Math.max(radius, radius / aspect) * 1.18;
       camera.top = halfHeight; camera.bottom = -halfHeight;
       camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect;
       camera.position.set(0, 0, 10);
@@ -94,13 +99,14 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
         uniforms: { pixelRatio: { value: Math.min(window.devicePixelRatio, 2) }, dim: { value: 1 } },
         vertexShader: `attribute float activity; attribute float silenced; varying float strength; varying float cut; uniform float pixelRatio;
           void main() { strength = activity; cut = silenced; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = (cut > .5 ? 7.0 : 0.9 + strength * 2.0) * pixelRatio; }`,
+          gl_PointSize = (cut > .5 ? 7.0 : 1.15 + strength * 2.35) * pixelRatio; }`,
         fragmentShader: `varying float strength; varying float cut; uniform float dim;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
           if (cut > .5) { gl_FragColor = vec4(.565, .522, .914, r > .3 ? 1. : .35); return; }  // silenced cell: violet ring, a colour no pathway uses
-          vec3 color = mix(vec3(.12,.35,.75), vec3(.2,.95,1.), strength);
-          color = mix(color,vec3(1.),smoothstep(.6,1.,strength));
-          gl_FragColor = vec4(color,(.28+.65*strength)*(1.-smoothstep(.18,.5,r))*mix(dim,1.,strength)); }`,
+          vec3 anatomy = vec3(1., .918, .816);       // #FFEAD0
+          vec3 firing = vec3(.969, .435, .557);      // #F76F8E
+          vec3 color = mix(anatomy, firing, smoothstep(.06, .7, strength));
+          gl_FragColor = vec4(color,(.56+.4*strength)*(1.-smoothstep(.18,.5,r))*mix(dim,1.,strength)); }`,
       });
       const paint = () => {
         if (disposed || !geometry) return;
@@ -152,6 +158,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
         };
         disposePathway = () => { edges.forEach(({ tube, tubeMaterial }) => { tube.geometry.dispose(); tubeMaterial.dispose(); }); cellGeometry.dispose(); cellMaterial.dispose(); };
       }
+      camera.zoom = INITIAL_ZOOM;
       fit();
       paint();
       setState("ready");
@@ -195,9 +202,6 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
   }, [atlas, pathway, choice]);
 
   return <>
-    <div className="brain-view-controls">
-      <button title="Reset to native XY projection with equal axis scale" onClick={() => resetView.current?.()}>XY view</button>
-    </div>
     {pathway && <div className="pathway-picker" role="group" aria-label="Signal paths to show">
       <button aria-pressed={choice === "all"} onClick={() => setChoice("all")}>All paths</button>
       {Object.entries(PATHWAYS).map(([id, item]) => <button key={id} aria-pressed={choice === id} title={item.hint} onClick={() => setChoice(choice === id ? "all" : id)}><i style={{ background: item.color }}/>{item.label}</button>)}

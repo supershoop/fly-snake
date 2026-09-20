@@ -40,6 +40,7 @@ export function App() {
   const [deathSeconds, setDeathSeconds] = useState(0);
   // learning curves of this session, one per wiring, so a scrambled run can be compared with the real one that came before it
   const [runs, setRuns] = useState<Partial<Record<LearningRun['wiring'], number[]>>>({});
+  const [brainResetVersion, setBrainResetVersion] = useState(0);
   const { frame, status, send, types, pending, feedbackUrls, vision } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
@@ -99,30 +100,30 @@ export function App() {
     <a className="skip-link" href="#experiment">Skip to experiment</a>
     <header className="site-header">
       <a className="brand" href="#" aria-label="Fly Snake home"><span className="brand-mark"><Icon name="snake" size={23}/></span><span>fly<span className="brand-divider">/</span>snake</span></a>
-      <span className="header-caption">A tiny brain experiment</span>
+      <span className="header-caption">A tiny brain experiment that plays Snake</span>
       <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
     </header>
     <main id="experiment">
       <section className="intro" aria-labelledby="page-title">
-        <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">{intro.title}</h1><p className="intro-description">{intro.description}</p></div>
-        <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}` : 'Measured anatomy · simulated activity'}</span></div>
+        <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">{intro.title}</h1><p className="intro-description">{intro.description} The board becomes sensory input, then brain activity, then a move.</p></div>
+        <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}${frame.thermal?.gpu != null ? ` · GPU ${Math.round(frame.thermal.gpu)} °C` : ''}` : 'Measured anatomy · simulated activity'}</span></div>
       </section>
       <ExperimentControls frame={frame} status={status} paused={paused} pending={visiblePending} send={send}/>
       {visiblePending && <div className="command-toast" role="status" aria-live="polite"><i className="spinner"/><span>{visiblePending.message}<small>Waiting for the next brain frame…</small></span></div>}
+      {frame?.thermal?.state === 'cooling' && <p className="thermal-banner is-cooling" role="status">Cooling down. The GPU reached {Math.round(frame.thermal.gpu ?? 0)} °C, so the simulation is holding still until it drops below the resume temperature.</p>}
+      {frame?.thermal?.state === 'slow' && <p className="thermal-banner" role="status">Running warm (GPU {Math.round(frame.thermal.gpu ?? 0)} °C). The simulation is leaving short gaps between moves.</p>}
       {error && <p className="error" role="alert">The brain atlas could not load. {error}</p>}
       <div className="workbench">
-        <section className="panel environment-panel" aria-labelledby="environment-title">
-          <div className="panel-heading"><h2 id="environment-title"><span className="panel-number">01</span>The environment</h2><span className="panel-meta">{displayLayout === 'versus' ? 'Human vs fly' : displayLayout === 'swarm' ? '16 independent boards' : displayLayout === 'arena' ? '8 flies · one board' : 'Snake'}</span></div>
+        <section className="panel environment-panel" aria-label="Snake game">
           <Environment frame={frame} status={status} paused={paused} pending={visiblePending} picked={picked} onPick={pick} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
           <div className="panel-bottom"><span>Game state <span aria-hidden="true">→</span> sensory neurons <span aria-hidden="true">→</span> brain <span aria-hidden="true">→</span> move</span><span className="live-dot">{frame ? `Move ${frame.move ?? '—'}` : 'Awaiting input'}</span></div>
         </section>
         <section className="panel brain-panel" aria-labelledby="brain-title">
-          <div className="panel-heading"><h2 id="brain-title"><span className="panel-number">02</span>Brain</h2></div>
-          {atlas ? <BrainScene atlas={atlas} frame={activity} silenced={silenced} pathway={vision?.pathway} pathwayRates={frame?.vision?.pathway}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : <><i className="spinner"/>Loading measured anatomy…</>}</p>}
+          <div className="panel-heading"><h2 id="brain-title">The Brain</h2><button className="brain-reset" title="Reset to the default XY view" onClick={() => setBrainResetVersion(version => version + 1)}>Reset view</button></div>
+          {atlas ? <BrainScene atlas={atlas} frame={activity} silenced={silenced} pathway={vision?.pathway} pathwayRates={frame?.vision?.pathway} resetVersion={brainResetVersion}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : <><i className="spinner"/>Loading measured anatomy…</>}</p>}
           <div className="panel-bottom"><span>{frame ? `${frame.activeNeurons.toLocaleString('en-US')} neurons active · last 100 ms${silenced.length ? ` · ${silenced.length.toLocaleString('en-US')} silenced cells marked` : ''}` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`}</span><a href={asset('data/brain-atlas/NOTICE.md')} target="_blank" rel="noreferrer">Data <span aria-hidden="true">↗</span></a></div>
         </section>
-        <section className="panel fly-panel" aria-labelledby="body-title">
-          <div className="panel-heading"><h2 id="body-title"><span className="panel-number">03</span>The organism</h2><span className="panel-meta">Drosophila</span></div>
+        <section className="panel fly-panel" aria-label="The organism">
           <FlyScene command={flyCommand} onDeathSceneLength={setDeathSeconds}/>
           <div className="body-caption"><em>Drosophila melanogaster</em><span>Also known as the common fruit fly.</span></div>
           <div className="panel-bottom"><span>live fruit fly reaction:</span><span>Drag to rotate · Scroll to zoom</span></div>

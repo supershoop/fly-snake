@@ -4,19 +4,20 @@ import { Icon } from './Icon';
 
 const CELL = 32;
 const SENSE_LABELS: Record<string, string> = { food_L: 'Food L', food_R: 'Food R', danger_L: 'Threat L', danger_R: 'Threat R', danger_ahead: 'Threat ahead' };
-const COLORS = ['#8bbab1', '#cfa1b6', '#a7b4db', '#d9bb85', '#bba8d7', '#87bcc7', '#c4c58d', '#d89f82'];
+// CSS custom properties keep the board in lockstep with the editable theme tokens.
+const COLORS = ['var(--pink)', 'var(--mauve)', 'var(--cream)', 'var(--blue)', 'var(--pink)', 'var(--mauve)', 'var(--cream)', 'var(--blue)'];
 
 function Board({ arena, selectedSnake, label, onSnake }: { arena: ArenaState; selectedSnake: number | null; label: string; onSnake?: (snake: number) => void }) {
   const id = useId();
   const extent = arena.size * CELL;
   return <svg viewBox={`0 0 ${extent} ${extent}`} role="img" aria-label={label}>
-    <defs><pattern id={id} width={CELL} height={CELL} patternUnits="userSpaceOnUse"><path d={`M${CELL} 0H0V${CELL}`} fill="none" stroke="#28332e" strokeWidth=".65"/></pattern></defs>
-    <rect width={extent} height={extent} fill="#101713"/>
+    <defs><pattern id={id} width={CELL} height={CELL} patternUnits="userSpaceOnUse"><path d={`M${CELL} 0H0V${CELL}`} fill="none" stroke="var(--blue)" strokeWidth=".65"/></pattern></defs>
+    <rect width={extent} height={extent} fill="var(--ink)"/>
     <rect width={extent} height={extent} fill={`url(#${id})`}/>
-    {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="#e4bc77" opacity=".1"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="#e4bc77"/></g>)}
+    {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="var(--pink)" opacity=".18"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="var(--pink)"/></g>)}
     {arena.snakes.map((snake, s) => snake.body.map(([x, y], index) => <rect key={`${s}-${index}`} onClick={onSnake && snake.kind === 'fly' ? () => onSnake(s) : undefined} style={onSnake && snake.kind === 'fly' ? { cursor: 'pointer' } : undefined} x={x * CELL + 2} y={y * CELL + 2} width={CELL - 4} height={CELL - 4} rx="5"
-      fill={snake.kind === 'human' ? (index === 0 ? '#f0a59b' : '#b7716b') : s === selectedSnake ? (index === 0 ? '#d6f4ad' : '#97bf88') : COLORS[s % COLORS.length]}
-      stroke={index === 0 ? '#f2f5e8' : 'none'} strokeWidth="1.4" opacity={snake.alive ? 1 - Math.min(.45, index * .02) : .3}/>))}
+      fill={snake.kind === 'human' ? (index === 0 ? 'var(--cream)' : 'var(--mauve)') : s === selectedSnake ? (index === 0 ? 'var(--pink)' : 'var(--mauve)') : COLORS[s % COLORS.length]}
+      stroke={index === 0 ? 'var(--cream)' : 'none'} strokeWidth="1.4" opacity={snake.alive ? 1 - Math.min(.45, index * .02) : .3}/>))}
   </svg>;
 }
 

@@ -196,6 +196,19 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
   that a biological fly plans routes. "The readout plays, the brain relabels" remains a fair criticism.
 - Everything the viewer shows is *simulated / predicted* activity, never measured. Say so.
 
+## Keeping the laptop alive (read before long GPU runs)
+The demo laptop hard-crashed once, most likely from heat: hours of GPU load, a 16-brain swarm plus evidence runs, RAM exhausted.
+- **One heavy GPU job at a time.** Stop the brain server before running an evidence script, and the other way round. A brain
+  process needs 3-4 GB of RAM; the laptop has 15.6 GB shared with browsers and agent sessions.
+- **The simulation idles while every page is hidden** (tab minimised or in the background; the page sends `{"visible": bool}`).
+  Losing focus alone does not pause it, so switching to slides during a demo is safe. Clients that never report count as watching.
+- **Thermal guard** (`flybrain/thermal.py`): reads the GPU temperature every 5 s, logs it to `outputs/gpu-temps.csv`, adds
+  `thermal {gpu, state}` to every frame. At 80 C it leaves 0.35 s gaps between moves ("slow"), at 87 C it holds until 78 C
+  ("cooling", banner on the page). `FLY_THERMAL_GUARD=slow` never holds, `=off` only logs; thresholds via `FLY_THERMAL_SLOW`,
+  `FLY_THERMAL_PAUSE`, `FLY_THERMAL_RESUME`. Only the GPU is watched. One fly runs at ~45 C; the swarm is the hot layout.
+- Lesion lab offers three lesions only: steering DNa02, giant fiber DNp01, food relays AOTU025/012/015. The any-type search is gone
+  from the page (the `{"lesion": ...}` message still accepts any type).
+
 ## Conventions
 - Neurons are addressed by MaleCNS `bodyId` across the Python/JS boundary, by simulator row index inside Python.
 - Work on `main`, small commits, pull often. Shared files (`server.py`, `App.tsx`, `live.ts`): keep edits small and additive;
