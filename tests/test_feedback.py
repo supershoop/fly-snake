@@ -1,5 +1,7 @@
 """Synthetic decisions verify feedback plumbing, not biological performance."""
 import json
+from collections import deque
+from threading import Lock
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
@@ -120,6 +122,7 @@ def small_experiment():
     experiment.sensor, experiment.sensor_seen = {}, 0.
     experiment.feedback, experiment.move = HumanFeedback(), 0
     experiment.inbox = []
+    experiment.human_moves, experiment.human_move_lock = deque(), Lock()
     experiment.stim_index = torch.tensor([0])
     experiment.readout_index = experiment.visible = torch.arange(2)
     experiment.visible_ids = np.array([101, 102])
