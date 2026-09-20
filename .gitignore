@@ -11,5 +11,6 @@ outputs/
 __pycache__/
 *.pyc
 data/
+.feedback-url
 !public/data/
 !public/data/**
