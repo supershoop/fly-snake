@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainScene } from './components/BrainScene';
 import { FlyScene, type FlyAnimation, type FlyCommand, type FlyDirection } from './components/FlyScene';
 import { Environment } from './components/Environment';
@@ -10,6 +10,7 @@ import { LesionLab } from './components/LesionLab';
 import { FlyView } from './components/FlyView';
 import { Leaderboard } from './components/Leaderboard';
 import { LearningChart, type LearningRun } from './components/LearningChart';
+import { Onboarding } from './components/Onboarding';
 import { ExperimentControls } from './components/ExperimentControls';
 import { Icon } from './components/Icon';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
@@ -37,6 +38,7 @@ const INTRO_COPY = {
 export function App() {
   const [atlas, setAtlas] = useState<Atlas | null>(null);
   const [error, setError] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const paused = false;  // pausing was removed from the interface; components still accept the flag
   const [picked, setPicked] = useState<number[]>([]);
   const [deathSeconds, setDeathSeconds] = useState(0);
@@ -97,8 +99,10 @@ export function App() {
   }, [frame?.layout, frame?.manual, paused, send]);
   const resume = () => send({ paused: false, stimulate: null });
   const connection = status === 'live' ? (frame ? paused ? 'Paused' : 'Live simulation' : 'Waiting for simulation') : status === 'connecting' ? 'Connecting' : 'Server offline';
+  const finishOnboarding = useCallback(() => setShowOnboarding(false), []);
 
   return <>
+    {showOnboarding && <Onboarding onComplete={finishOnboarding}/>}
     <a className="skip-link" href="#experiment">Skip to experiment</a>
     <header className="site-header">
       <a className="brand" href="#" aria-label="snake flies home"><span className="brand-mark"><img className="brand-logo" src="/snakeflies.svg" alt="" /></span><span>snake flies</span></a>
