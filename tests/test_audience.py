@@ -1,7 +1,9 @@
 """Audience transport uses synthetic spikes; these tests make no performance claims."""
 import asyncio
 import json
+from pathlib import Path
 import socket
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -17,22 +19,59 @@ from test_feedback import small_experiment
 
 
 class FeedbackUrlTests(unittest.TestCase):
+    def setUp(self):
+        # A tunnel running on this machine must not change what these cases observe.
+        self.unpublished = Path(tempfile.mkdtemp()) / "absent-url"
+
+    def environment(self, **extra):
+        return patch.dict("os.environ", {"FLY_FEEDBACK_URL_FILE": str(self.unpublished), **extra}, clear=True)
+
     def test_public_tls_and_proxy_prefix_are_preserved(self):
-        with patch.dict("os.environ", {}, clear=True):
+        with self.environment():
             self.assertEqual(feedback_urls(SimpleNamespace(url="wss://demo.example/brain/ws")),
                              ["https://demo.example/brain/feedback/"])
 
     def test_loopback_is_replaced_with_lan_address(self):
-        with patch.dict("os.environ", {}, clear=True), patch("flybrain.audience.socket.socket") as probe, \
+        with self.environment(), patch("flybrain.audience.socket.socket") as probe, \
                 patch("flybrain.audience.socket.getaddrinfo", return_value=[]):
             probe.return_value.__enter__.return_value.getsockname.return_value = ("192.168.1.12", 30000)
             self.assertEqual(feedback_urls(SimpleNamespace(url="ws://127.0.0.1:8000/ws")),
                              ["http://192.168.1.12:8000/feedback/"])
 
     def test_explicit_public_link(self):
-        with patch.dict("os.environ", {"FLY_FEEDBACK_URL": "https://fly.example/feedback/"}):
+        with self.environment(FLY_FEEDBACK_URL="https://fly.example/feedback/"):
             self.assertEqual(feedback_urls(SimpleNamespace(url="ws://localhost:8000/ws")),
                              ["https://fly.example/feedback/"])
+
+    def test_running_tunnel_replaces_local_addresses_without_a_restart(self):
+        published = Path(tempfile.mkdtemp()) / "url"
+        published.write_text("https://tunnel.example/feedback/\n")
+        with patch.dict("os.environ", {"FLY_FEEDBACK_URL_FILE": str(published)}, clear=True):
+            self.assertEqual(feedback_urls(SimpleNamespace(url="ws://127.0.0.1:8000/ws")),
+                             ["https://tunnel.example/feedback/"])
+        # An explicit override still wins, and a closed tunnel stops being advertised.
+        with patch.dict("os.environ", {"FLY_FEEDBACK_URL_FILE": str(published),
+                                       "FLY_FEEDBACK_URL": "https://manual.example/feedback/"}, clear=True):
+            self.assertEqual(feedback_urls(SimpleNamespace(url="ws://127.0.0.1:8000/ws")),
+                             ["https://manual.example/feedback/"])
+        published.unlink()
+        with patch.dict("os.environ", {"FLY_FEEDBACK_URL_FILE": str(published)}, clear=True), \
+                patch("flybrain.audience.socket.socket") as probe, \
+                patch("flybrain.audience.socket.getaddrinfo", return_value=[]):
+            probe.return_value.__enter__.return_value.getsockname.return_value = ("192.168.1.12", 30000)
+            self.assertEqual(feedback_urls(SimpleNamespace(url="ws://127.0.0.1:8000/ws")),
+                             ["http://192.168.1.12:8000/feedback/"])
+
+    def test_a_blank_or_bogus_published_url_is_ignored(self):
+        published = Path(tempfile.mkdtemp()) / "url"
+        for content in ("", "   \n", "not-a-url", "javascript:alert(1)"):
+            published.write_text(content)
+            with patch.dict("os.environ", {"FLY_FEEDBACK_URL_FILE": str(published)}, clear=True), \
+                    patch("flybrain.audience.socket.socket") as probe, \
+                    patch("flybrain.audience.socket.getaddrinfo", return_value=[]):
+                probe.return_value.__enter__.return_value.getsockname.return_value = ("192.168.1.12", 30000)
+                self.assertEqual(feedback_urls(SimpleNamespace(url="ws://127.0.0.1:8000/ws")),
+                                 ["http://192.168.1.12:8000/feedback/"])
 
 
 class AudienceQueueTests(unittest.IsolatedAsyncioTestCase):

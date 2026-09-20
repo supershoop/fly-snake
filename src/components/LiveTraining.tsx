@@ -25,9 +25,14 @@ export function LiveTraining({ frame, status, paused, pending, feedbackUrls, sen
     : !eligible ? 'Waiting for a game move to train…'
     : `Train ${allFlies ? 'all flies’ displayed moves' : `fly ${frame!.selected + 1}’s displayed move`}.`;
   const last = feedback?.last;
-  const result = last?.status === 'applied'
-    ? `Applied ${last.value > 0 ? '+' : ''}${last.value.toFixed(2)} to ${last.fly === null ? `${last.targets.length} flies` : `fly ${last.fly + 1}`} · move ${last.move}`
-    : last?.status === 'rejected' ? last.reason : 'No human stimuli applied in this session.';
+  // Applied receipts come in two shapes: a signed stimulus from here, or a direction an
+  // audience phone taught with its share of the crowd's influence.
+  const target = last?.status === 'applied'
+    ? last.fly === null ? `${last.targets.length} flies` : `fly ${last.fly + 1}` : '';
+  const result = last?.status !== 'applied' ? (last?.status === 'rejected' ? last.reason : 'No human stimuli applied in this session.')
+    : 'direction' in last
+      ? `Audience taught ${last.direction} to ${target} · ${Math.round(last.weight * 100)}% of one move’s influence · move ${last.move}`
+      : `Applied ${last.value > 0 ? '+' : ''}${last.value.toFixed(2)} to ${target} · move ${last.move}`;
   useEffect(() => { if (feedback?.last) setFeedbackPending(null); }, [feedback?.last]);
   const stimulate = (sign: number) => {
     if (enabled && frame) {

@@ -113,6 +113,24 @@ class OnlineLearner(Policy):
         if count_moves:
             self.moves += len(action)
 
+    def teach(self, desired: torch.Tensor, weights: torch.Tensor, *, experience=None):
+        """Nudge a saved decision toward the action a human says it should have taken.
+
+        learn() reinforces the action the fly actually chose; this instead pushes toward
+        `desired` [B] with strength `weights` [B] (zero excludes a fly), the cross-entropy
+        gradient on the same linear readout. It is a bias on top of the game's own rewards,
+        never a replacement: the brain and the automatic reward signal are untouched, and
+        teaching does not count as another game move.
+        """
+        experience = self.last if experience is None else experience
+        if experience is None:
+            return
+        inputs, probabilities, _ = experience
+        target = torch.nn.functional.one_hot(desired.to(inputs.device), 3).float()
+        error = (target - probabilities) * weights.to(inputs.device)[:, None]
+        self.weight += self.rate * error.T @ inputs
+        self.bias += self.rate * error.sum(dim=0)
+
 
 def fit(features: torch.Tensor, labels: torch.Tensor, epochs: int = 300, weight_decay: float = 1e-3) -> Policy:
     """features [M, R] spike counts, labels [M] actions."""

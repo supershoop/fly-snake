@@ -63,6 +63,7 @@ class Experiment:
         self.feedback, self.move = HumanFeedback(), 0
         self.history: list[float] = []  # score of every finished fly game, oldest first
         self.death_hold = 0.0           # seconds the game holds still after the displayed fly dies (set by the page)
+        self.step_rate = 0.0            # host-chosen cap on moves/second; 0 = uncapped (as fast as the brain computes)
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
         # Human movement arrives on the event-loop thread while tick() runs in a
         # worker. Consume only one heading per tick so a quick pair of turns is
@@ -184,6 +185,9 @@ class Experiment:
             self.queue_human_move(message["human"])
         if "deathHold" in message:  # the page reports how long its death animation lasts
             self.death_hold = min(5.0, max(0.0, float(message["deathHold"])))
+        if "stepRate" in message:  # host slider: cap moves/second; 0 or omitted-below-min means uncapped
+            rate = float(message["stepRate"])
+            self.step_rate = 0.0 if rate <= 0 else min(20.0, max(0.25, rate))
         if "select" in message:
             self.selected = int(message["select"]) % len(self.flies)
         if "paused" in message:
@@ -218,6 +222,9 @@ class Experiment:
 
         rewards = np.zeros(len(self.flies), dtype=np.float32)
         eligible = [False] * len(self.flies)
+        # Captured before stepping: the arena rotates headings, but phone D-pad votes name an
+        # absolute direction and must be resolved against the facing the fly decided from.
+        headings = [self.arenas[a].snakes[s].heading for a, s in self.flies]
         if self.override is None:
             for a, arena in enumerate(self.arenas):
                 outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a})
@@ -229,7 +236,7 @@ class Experiment:
                             self.history.append(arena.snakes[s].last_score)
         self.move += 1
         if isinstance(policy, OnlineLearner) and self.override is None:
-            self.feedback.remember(self.move, policy, eligible)
+            self.feedback.remember(self.move, policy, eligible, headings)
             policy.learn(torch.as_tensor(rewards))
 
         self.clock += WINDOW_MS / 1000
@@ -242,7 +249,10 @@ class Experiment:
             "time": round(self.clock, 3), "move": self.move, "layout": self.layout, "wiring": self.wiring, "policy": self.policy_name,
             "manual": self.override is not None, "sensor": self.sensor if time.monotonic() - self.sensor_seen < SENSOR_HOLD_S else {},
             "arenas": [arena.render_state() for arena in self.arenas],
-            "flies": [{"arena": a, "snake": s, "channels": dict(zip(CHANNEL_NAMES, levels[:, f].tolist())), "action": actions[f],
+            # "heading" is the pre-move facing this decision was made from, which is what a
+            # D-pad vote is resolved against. The board's snake heading has already turned.
+            "flies": [{"arena": a, "snake": s, "heading": headings[f],
+                       "channels": dict(zip(CHANNEL_NAMES, levels[:, f].tolist())), "action": actions[f],
                        "probabilities": [round(p, 3) for p in probabilities[f].tolist()], "reward": float(rewards[f]),
                        "feedbackEligible": eligible[f] and isinstance(policy, OnlineLearner),
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
@@ -268,17 +278,32 @@ async def loop():
     global experiment
     experiment = await asyncio.to_thread(Experiment)
     record = open(os.environ["FLY_RECORD"], "a") if os.environ.get("FLY_RECORD") else None
+    sent_at = None  # when the previous frame actually went out, for the achieved-rate readout
     while True:
         if (not clients and not audience.clients) or experiment.paused:
             await audience.publish(paused=experiment.paused)
             await asyncio.sleep(0.1)
+            sent_at = None  # idle time is not part of the moves/second the slider promises
             continue
+        started = time.monotonic()
         try:
             frame = await asyncio.to_thread(experiment.tick)
-            message = json.dumps(frame)
         except FileNotFoundError:  # e.g. scrambled-wiring readout not trained yet: scripts/train_readout.py --shuffled
             experiment.wiring, experiment.policy_name = "real", "trained"
             continue
+        elapsed = time.monotonic() - started
+        # A rate cap can only slow the game down: the brain still takes as long as it takes to
+        # compute one move, so the slider's floor is whatever elapsed just now, not a promise.
+        if experiment.step_rate:
+            await asyncio.sleep(max(0.0, 1 / experiment.step_rate - elapsed))
+        now = time.monotonic()
+        # The achieved rate is the full period between sends, including any pacing sleep -
+        # reporting only compute time would understate the cap and mislead the slider's readout.
+        # Two decimals: the dashboard's slider moves in quarter-steps down to 0.25/s, and one
+        # decimal cannot distinguish 0.25 from 0.2/0.3 once scheduling jitter is folded in.
+        frame["stepRate"] = round(1 / max(now - sent_at, 1e-6), 2) if sent_at else None
+        sent_at = now
+        message = json.dumps(frame)
         if record:
             record.write(message + "\n")
         await audience.publish(frame, paused=experiment.paused)

@@ -13,11 +13,27 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 
 PUBLIC = Path(__file__).resolve().parents[1] / "public" / "feedback"
+# A tunnel writes its public URL here (scripts/public_tunnel.py). Read per request so the
+# QR code follows a new tunnel without restarting the brain or losing the live learner.
+URL_FILE = Path(__file__).resolve().parents[1] / ".feedback-url"
+
+
+def published_url():
+    """The explicit override, else a URL published by a running tunnel."""
+    override = os.environ.get("FLY_FEEDBACK_URL", "").strip()
+    if override:
+        return override
+    path = Path(os.environ.get("FLY_FEEDBACK_URL_FILE") or URL_FILE)
+    with contextlib.suppress(OSError):
+        published = path.read_text().strip()
+        if published.startswith(("http://", "https://")):
+            return published
+    return None
 
 
 def feedback_urls(websocket):
     """Prefer the reachable server host; replace loopback with LAN interfaces."""
-    override = os.environ.get("FLY_FEEDBACK_URL")
+    override = published_url()
     if override:
         return [override]
     url = urlsplit(str(websocket.url))
@@ -43,15 +59,49 @@ def feedback_urls(websocket):
             if not ipaddress.ip_address(address).is_loopback and not ipaddress.ip_address(address).is_unspecified]
 
 
+# One unit of crowd influence per move, shared by everyone connected, so the audience biases
+# the readout without drowning the game's own rewards (food +1, death -1, closer +-0.1) or the
+# brain, which is never modified. A lone voter nudges as hard as a full room does together.
+TEACH_BUDGET = 1.0
+
+
 class AudienceFeedback:
+    TEACH_KEYS = {"id", "direction", "fly", "move"}
+    FEEDBACK_KEYS = {"id", "feedback", "fly", "move"}
+
     def __init__(self):
         self.clients = set()
         self.pending = deque()
         self.latest = None
+        self.spent = {}   # move -> crowd influence already applied to it
+        self.voted = {}   # move -> participants who already taught it
+
+    def participants(self):
+        """Connected phones, which is what divides each vote's weight."""
+        return max(1, len(self.clients))
+
+    def vote_weight(self, move, voter):
+        """base / N, refused once a voter repeats or the move's shared budget is gone."""
+        if voter in self.voted.setdefault(move, set()):
+            return 0.0
+        remaining = TEACH_BUDGET - self.spent.get(move, 0.0)
+        return min(TEACH_BUDGET / self.participants(), remaining) if remaining > 1e-9 else 0.0
+
+    def charge(self, move, voter, weight):
+        self.spent[move] = self.spent.get(move, 0.0) + weight
+        self.voted.setdefault(move, set()).add(voter)
+        for stale in [key for key in self.spent if key < move - 256]:
+            self.spent.pop(stale, None)
+            self.voted.pop(stale, None)
 
     async def submit(self, message, experiment):
-        if not isinstance(message, dict) or set(message) != {"id", "feedback", "fly", "move"}:
+        if isinstance(message, dict) and set(message) == self.TEACH_KEYS:
+            return await self.enqueue(message, experiment)
+        if not isinstance(message, dict) or set(message) != self.FEEDBACK_KEYS:
             return {"status": "rejected", "reason": "Send feedback for a displayed move only."}
+        return await self.enqueue(message, experiment)
+
+    async def enqueue(self, message, experiment):
         if not isinstance(message["id"], str) or len(message["id"]) > 80:
             return {"status": "rejected", "reason": "Invalid feedback request."}
         if experiment is None or experiment.paused:
@@ -75,8 +125,17 @@ class AudienceFeedback:
                 receipt = {"status": "rejected", "reason": "Waiting for the host to resume normal play."}
             else:
                 learner = experiment.policy() if experiment.policy_name == "learning" else None
-                experiment.feedback.apply(message, learner)
-                receipt = dict(experiment.feedback.last)
+                if set(message) == self.TEACH_KEYS:
+                    move, voter = message.get("move"), message.get("id")
+                    weight = self.vote_weight(move, voter) if isinstance(move, int) else 0.0
+                    receipt = dict(experiment.feedback.teach(message, learner, weight))
+                    if receipt.get("status") == "applied":
+                        self.charge(move, voter, weight)
+                    elif weight <= 0 and isinstance(move, int) and learner is not None:
+                        receipt = {"status": "rejected", "reason": "You already taught this move. Wait for the next one."}
+                else:
+                    experiment.feedback.apply(message, learner)
+                    receipt = dict(experiment.feedback.last)
             def resolve(future=future, receipt=receipt):
                 if not future.done():
                     future.set_result(receipt)
@@ -86,6 +145,10 @@ class AudienceFeedback:
         if frame is not None:
             self.latest = {key: frame[key] for key in ("move", "policy", "manual", "selected", "arenas", "flies")}
             self.latest["feedback"] = {key: frame["learning"]["feedback"][key] for key in ("positive", "negative")}
+            self.latest["audience"] = {"participants": self.participants(),
+                                       "taught": frame["learning"]["feedback"].get("taught", 0),
+                                       "directions": frame["learning"]["feedback"].get("directions", {}),
+                                       "share": round(TEACH_BUDGET / self.participants(), 4)}
         elif self.latest is None or self.latest.get("paused") == paused:
             return
         self.latest["paused"] = paused

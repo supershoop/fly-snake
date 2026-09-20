@@ -56,8 +56,22 @@ On campus networks with device isolation, `scripts/audience_gateway.py` exposes 
 `/feedback/ws` on loopback port 8002 for an HTTPS tunnel. It forwards to the existing brain's feedback socket;
 it does not start another experiment or expose host `/ws` controls. `VITE_FEEDBACK_URL` overrides the QR URL
 at frontend build/dev startup without restarting the brain. Temporary tunnel URLs must be refreshed on restart.
-The feedback-only socket at `/feedback/ws` accepts exactly `{id: string, feedback: number, fly: number|null, move: number}`.
-It sends `{frame: {move, policy, manual, paused, selected, arenas, flies, feedback: {positive, negative}}}` and a private
+`scripts/public_tunnel.py --port 8002` automates that: it runs `cloudflared` (install it first), writes the public
+URL to `.feedback-url` (gitignored), and deletes it on exit so a dead tunnel is never advertised. `feedback_urls()`
+re-reads that file per request, so the QR follows a new tunnel with no brain restart and no lost live learner.
+Precedence: `FLY_FEEDBACK_URL` > `.feedback-url` (or `FLY_FEEDBACK_URL_FILE`) > discovered LAN addresses.
+Verified end to end through a quick tunnel: phone page over HTTPS, `wss://` live frames, and an applied vote.
+The feedback-only socket at `/feedback/ws` accepts exactly `{id: string, feedback: number, fly: number|null, move: number}`,
+or a D-pad vote, exactly `{id: string, direction: "up"|"right"|"down"|"left", fly: number|null, move: number}`.
+Direction is absolute board compass, resolved against `flies[i].heading` (the pre-move facing that decision was made
+from, not the board's already-turned `snakes[i].heading`). A snake turns one quarter turn per move, so the reverse of
+that heading is refused, and the phone greys out that arrow. Each vote applies `1/N` of one unit of influence, `N` being
+connected phones; one vote per phone per move, and a move's total is capped at that one unit, so the crowd biases the
+readout while the game's own rewards (food +1, death -1, closer +-0.1) and the fixed brain still decide behaviour.
+Teaching pushes the saved decision toward the wanted turn (`OnlineLearner.teach`, cross-entropy) instead of reinforcing
+the chosen one, and does not count as a game move. Applied receipts carry `{direction, weight}` instead of `value`.
+It sends `{frame: {move, policy, manual, paused, selected, arenas, flies, feedback: {positive, negative},
+audience: {participants, taught, directions, share}}}` and a private
 `{id, receipt}` for each request, using the existing applied/rejected receipt shape. Feedback is applied between moves
 to the shared readout; stale moves, other mode commands, paused/manual play and non-learning modes are rejected.
 
@@ -84,11 +98,14 @@ Client -> server, any combination of keys in one message (applied between moves)
 | `{"sensor": {"danger_ahead": 0.8}}` | hardware input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz |
 | `{"stimulate": {"food_L": 1}\|null}` | manual override of all senses; game holds still while set |
 | `{"human": "up"\|"down"\|"left"\|"right"}`, `{"select": i}`, `{"paused": bool}` | human snake; which fly's brain is shown; pause |
+| `{"stepRate": n}` | cap moves/second to `n` (clamped 0.5-20); `0` or omitted removes the cap. Only ever slows the game down: the brain still takes as long as it takes to compute one move, so this is a ceiling, not a promise. |
 
 Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `arenas[]` (boards, foods, snakes), `flies[]`
 (per fly: `channels`, `action`, `probabilities`, `reward`, `feedbackEligible`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
 `move` (monotonically increasing decision ID), `values` (selected fly's brain activity by bodyId),
-`learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`.
+`learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`, `stepRate`
+(moves/second actually achieved over the period since the previous frame was sent, including any pacing sleep; `null`
+on the first frame after an idle gap, since there is no prior send to measure from).
 Feedback `last` is null, `{status: "applied", value, fly, move, targets[]}`, or `{status: "rejected", reason}`.
 Live readout changes last for the server session. Feedback controls require an unpaused game without manual sensory override.
 Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. Game danger channels indicate immediate collision

@@ -70,6 +70,13 @@ h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(29px, 2.6v
 .segmented small { font-family: var(--mono); font-size: 9px; color: inherit; opacity: .7; }
 .policy-control { display: block; }
 .policy-control select { width: 168px; min-height: 44px; }
+/* Every dimension here is fixed rather than content-driven, so the slider's track never
+   shifts position or width as its label switches between "Uncapped" and "3.00/s". */
+.step-rate-control { width: 190px; flex: 0 0 190px; }
+.step-rate-slider { display: flex; align-items: center; gap: 10px; width: 100%; }
+.step-rate-slider input[type="range"] { width: 110px; flex: 0 0 110px; accent-color: #50633f; }
+.step-rate-slider output { display: inline-block; width: 62px; flex: 0 0 62px; font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.step-rate-actual { display: block; margin-top: 6px; height: 12px; font-family: var(--mono); font-size: 9px; color: var(--muted); opacity: .8; font-variant-numeric: tabular-nums; }
 .wiring-button { background: transparent; border-color: transparent; padding-inline: 0; min-height: 44px; white-space: nowrap; }
 .wiring-button:hover:not(:disabled) { background: transparent; border-color: transparent; }
 .wiring-button[aria-pressed=true] { color: #e4bc77; background: transparent; border-color: transparent; }

@@ -1,5 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Layout, LiveFrame, LiveStatus, PendingCommand, PolicyName, Wiring } from '../lib/live';
 import { Icon } from './Icon';
+
+const MAX_STEP_RATE = 5; // dashboard ceiling; the server independently clamps to its own range in Experiment.handle
 
 const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[] = [
   { layout: 'solo', label: 'One fly', hint: 'One simulated brain. One snake. Follow the signal from senses to movement.' },
@@ -23,6 +26,18 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
   const layout = pending?.layout ?? frame?.layout;
   const mode = frame ? modeOf(pending?.wiring ?? frame.wiring, pending?.policy ?? frame.policy) : null;
   const ready = status === 'live' && !!frame && !paused;
+
+  // The slider sets a cap the host can move freely; the server reports what it actually
+  // achieved (stepRate on the frame), since the brain can't be sped up past its compute time.
+  const [stepRate, setStepRate] = useState(0); // 0 = uncapped, i.e. as fast as the brain computes
+  const sendRate = useRef(send);
+  sendRate.current = send;
+  useEffect(() => {
+    const timeout = setTimeout(() => sendRate.current({ stepRate }), 150); // debounce drag events
+    return () => clearTimeout(timeout);
+  }, [stepRate]);
+  const achieved = frame?.stepRate;
+
   return <section className="experiment-controls" aria-label="Experiment settings">
     <div className="control-row">
       <div className="layout-control">
@@ -38,6 +53,17 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
         <div className="segmented" role="group" aria-labelledby="mode-label">
           {MODES.map(({ mode: option, label, hint, message }) => <button key={option} disabled={!ready} title={hint} aria-pressed={mode === option} onClick={() => send(message)}><span>{label}</span></button>)}
         </div>
+      </div>
+      <div className="layout-control step-rate-control">
+        <span className="eyebrow" id="step-rate-label">Speed</span>
+        <label htmlFor="step-rate" className="step-rate-slider">
+          <input id="step-rate" type="range" min="0" max={MAX_STEP_RATE} step="0.25" disabled={!ready}
+                 value={stepRate} onChange={event => setStepRate(Number(event.target.value))}
+                 aria-labelledby="step-rate-label" title="Cap simulation moves per second; the brain can't run faster than it computes"/>
+          {/* Fixed width so "Uncapped" vs "0.25/s" vs "3.00/s" never reflow the slider's track. */}
+          <output htmlFor="step-rate">{stepRate === 0 ? 'Uncapped' : `${stepRate.toFixed(2)}/s`}</output>
+        </label>
+        <small className="step-rate-actual">{ready && achieved ? `${achieved.toFixed(2)} moves/s actual` : '\u00A0'}</small>
       </div>
     </div>
     <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : frame ? `${LAYOUTS.find(item => item.layout === layout)?.hint} ${MODES.find(item => item.mode === mode)?.hint}` : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">Synaptic weights stay fixed</span></div>

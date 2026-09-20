@@ -19,13 +19,19 @@ select { font: inherit; color: #e5e9df; border: 1px solid #46543c; background: #
 canvas { display: block; width: min(100%, 300px); height: auto; margin: auto; background: #101411; border-radius: 4px; }
 #move { margin: 10px 0 0; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; }
 #help { min-height: 2.8em; margin: 16px 0 8px; }
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-button { min-height: 124px; border: 1px solid; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; touch-action: manipulation; padding: 12px 7px; }
-button span { display: block; font-size: 33px; font-weight: 400; line-height: 1.2; margin-bottom: 6px; }
-button small { display: block; margin-top: 7px; font-weight: 400; font-size: 10px; opacity: .8; }
-.positive { color: #d1edb7; border-color: #67874d; background: #2d3b23; }
-.negative { color: #f3c0b0; border-color: #946551; background: #3b2923; }
-button:active:not(:disabled) { transform: scale(.98); }
+.dpad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  gap: 10px; width: min(100%, 300px); margin: 0 auto; aspect-ratio: 1; }
+button { border: 1px solid; border-radius: 10px; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; touch-action: manipulation; padding: 8px 4px; }
+button span { display: block; font-size: 30px; font-weight: 400; line-height: 1.1; }
+.dpad-key { color: #d1edb7; border-color: #67874d; background: #2d3b23; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; transition: opacity .15s, color .15s, border-color .15s, background-color .15s; }
+.dpad-up { grid-area: 1 / 2; }
+.dpad-left { grid-area: 2 / 1; }
+.dpad-right { grid-area: 2 / 3; }
+.dpad-down { grid-area: 3 / 2; }
+.dpad-hub { grid-area: 2 / 2; border-radius: 50%; border: 1px dashed #36422f; }
+.dpad-key.blocked { color: #a08a7e; border-color: #5d463b; background: #2a211d; }
+button:active:not(:disabled) { transform: scale(.96); }
 button:disabled { opacity: .4; cursor: not-allowed; }
 button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #c8e9a8; outline-offset: 4px; }
 .receipt { min-height: 3.3em; border-left: 2px solid #6c8357; padding-left: 12px; color: #cadfb7; margin-top: 20px; }

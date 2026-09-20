@@ -9,15 +9,22 @@ export type FlyState = {
   // danger_* includes immediate collision and losing the route to the moving tail.
   arena: number; snake: number; channels: Record<string, number>; action: 0 | 1 | 2; probabilities: [number, number, number];
   reward: number; steer: Record<string, number>; lesion: string[]; feedbackEligible?: boolean;
+  /** Pre-move facing this decision was made from; phone D-pad votes resolve against it. */
+  heading?: number;
 };
 export type FeedbackState = {
   positive: number; negative: number;
+  /** Directions the audience taught, by absolute compass name. */
+  taught?: number; directions?: Record<string, number>;
   last: { status: 'applied'; value: number; fly: number | null; move: number; targets: number[] }
+    | { status: 'applied'; direction: string; fly: number | null; move: number; targets: number[]; weight: number }
     | { status: 'rejected'; reason: string } | null;
 };
 /** Server -> client, one per move. Documented in AGENTS.md; keep both in sync. */
 export type LiveFrame = {
   time: number; move?: number; layout: Layout; wiring: Wiring; policy: PolicyName; manual: boolean; sensor: Record<string, number>;
+  /** Moves/second actually achieved on the last tick; a stepRate cap can only slow this down. */
+  stepRate?: number;
   arenas: ArenaState[]; flies: FlyState[]; selected: number; lesionPresets: string[];
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
