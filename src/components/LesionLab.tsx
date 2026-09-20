@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { LiveFrame, NeuronType } from '../lib/live';
+import type { LiveFrame, LiveStatus, NeuronType } from '../lib/live';
 
 /** Relay cells found by path search in the connectome (scripts/lesion_scores.py), not chosen by hand-tuning. */
 const PRESETS: { label: string; hint: string; types: string[] }[] = [
@@ -12,30 +12,44 @@ const PRESETS: { label: string; hint: string; types: string[] }[] = [
   { label: 'Looming detectors · LC4', hint: 'The cells we stimulate for side threats.', types: ['LC4'] },
 ];
 
-export function LesionLab({ frame, types, send }: { frame: LiveFrame | null; types: NeuronType[]; send: (message: object) => void }) {
+export function LesionLab({ frame, status, paused = false, types, send }: { frame: LiveFrame | null; status: LiveStatus; paused?: boolean; types: NeuronType[]; send: (message: object) => void }) {
   const [query, setQuery] = useState('');
   const [everyFly, setEveryFly] = useState(true);
+  const connected = status === 'live' && frame !== null;
+  const enabled = connected && !paused;
   const active = frame?.flies[frame.selected]?.lesion ?? [];
-  const cellCount = useMemo(() => new Map(types.map(([kind, cells]) => [kind, cells])), [types]);
   const matches = useMemo(() => {
     const wanted = query.trim().toLowerCase();
-    return wanted ? types.filter(([kind]) => kind.toLowerCase().includes(wanted)).slice(0, 12) : [];
+    return wanted ? types.filter(([kind]) => kind.toLowerCase().includes(wanted)) : [];
   }, [query, types]);
-  const apply = (next: string[]) => send({ lesion: { fly: everyFly ? null : frame?.selected, types: next } });
+  const apply = (next: string[]) => {
+    if (enabled) send({ lesion: { fly: everyFly ? null : frame.selected, types: next } });
+  };
   const toggle = (patterns: string[]) => apply(patterns.every(p => active.includes(p)) ? active.filter(p => !patterns.includes(p)) : [...new Set([...active, ...patterns])]);
-  const silenced = active.reduce((total, pattern) => total + (cellCount.get(pattern) ?? types.filter(([kind]) => new RegExp(`^(?:${pattern})$`).test(kind)).reduce((sum, [, cells]) => sum + cells, 0)), 0);
+  const patterns = active.flatMap(pattern => {
+    try { return [new RegExp(`^(?:${pattern})$`)]; } catch { return []; }
+  });
+  const silenced = types.reduce((total, [kind, cells]) => total + (patterns.some(pattern => pattern.test(kind)) ? cells : 0), 0);
+  const canHeal = enabled && (everyFly ? frame.flies.some(fly => fly.lesion.length > 0) : active.length > 0);
+  const searchHelp = !connected ? 'Connect the brain server to explore neuron types.'
+    : !types.length ? 'Loading the neuron catalogue…'
+    : !query.trim() ? 'Search by type name to find individual neuron groups.'
+    : !matches.length ? `No neuron types match “${query.trim()}”.`
+    : `${matches.length.toLocaleString('en-US')} matching ${matches.length === 1 ? 'type' : 'types'}${matches.length > 12 ? ' · showing the first 12; refine your search for more' : ''}.`;
 
   return <section className="model-status lesion-lab" aria-label="Lesion lab">
     <div><strong>LESION LAB · SILENCE NEURONS</strong>
-      <p>Silenced neurons can never spike; nothing else changes. {active.length ? `${silenced.toLocaleString('en-US')} of ${frame?.totalNeurons.toLocaleString('en-US')} neurons silenced.` : 'The brain is intact.'}</p>
-      <div className="controls">{PRESETS.map(preset => <button key={preset.label} title={preset.hint} aria-pressed={preset.types.every(p => active.includes(p))} onClick={() => toggle(preset.types)}>{preset.label}</button>)}
-        <button disabled={!active.length} onClick={() => apply([])}>Heal</button></div>
+      <p>Silenced neurons cannot spike. {!connected ? 'Connect the brain server to run a lesion experiment.' : paused ? 'Resume the simulation to change lesions.' : active.length ? `${types.length ? silenced.toLocaleString('en-US') + ' neurons' : active.length + ' type patterns'} silenced in fly ${frame.selected + 1}.` : 'The selected brain is intact.'}</p>
+      <div className="controls">{PRESETS.map(preset => <button key={preset.label} disabled={!enabled} title={preset.hint} aria-pressed={preset.types.every(p => active.includes(p))} onClick={() => toggle(preset.types)}>{preset.label}</button>)}
+        <button disabled={!canHeal} onClick={() => apply([])}>{everyFly ? 'Heal all flies' : 'Heal selected fly'}</button></div>
     </div>
     <div><strong>ANY NEURON TYPE</strong>
-      <p><label>Search {types.length.toLocaleString('en-US')} annotated types <input value={query} onChange={event => setQuery(event.target.value)} placeholder="e.g. AOTU, MBON, DNg" spellCheck={false}/></label></p>
-      <div className="controls">{matches.map(([kind, cells, superclass]) => <button key={kind} aria-pressed={active.includes(kind)} title={superclass} onClick={() => toggle([kind])}>{kind} <small>×{cells}</small></button>)}</div>
-      {active.length > 0 && <p>Silenced: {active.map(pattern => <button key={pattern} className="chip" title="Remove" onClick={() => toggle([pattern])}>{pattern.replace('.*', '')} ✕</button>)}</p>}
-      <p><label><input type="checkbox" checked={everyFly} onChange={event => setEveryFly(event.target.checked)}/> apply to every fly (off: only the selected fly, so lesioned and intact flies can race)</label></p>
+      <p><label>Search {types.length.toLocaleString('en-US')} annotated types <input disabled={!connected || !types.length} value={query} onChange={event => setQuery(event.target.value)} placeholder="e.g. AOTU, MBON, DNg" spellCheck={false} aria-describedby="lesion-search-help" aria-controls="lesion-search-results"/></label></p>
+      <p id="lesion-search-help" role="status">{searchHelp}</p>
+      <div id="lesion-search-results" className="controls">{matches.slice(0, 12).map(([kind, cells, superclass]) => <button key={kind} disabled={!enabled} aria-pressed={active.includes(kind)} title={superclass} onClick={() => toggle([kind])}>{kind} <small>×{cells}</small></button>)}</div>
+      {active.length > 0 && <p>Silenced: {active.map(pattern => <button key={pattern} disabled={!enabled} className="chip" aria-label={`Remove ${pattern} lesion`} title={`Remove ${pattern} lesion`} onClick={() => toggle([pattern])}>{pattern.replace('.*', '')} <span aria-hidden="true">×</span></button>)}</p>}
+      <p><label><input type="checkbox" disabled={!connected} checked={everyFly} onChange={event => setEveryFly(event.target.checked)}/> Apply to every fly</label></p>
+      <p>{everyFly ? 'Changes replace every fly’s lesions with the selection shown here.' : 'Changes affect only the selected fly. Compare it with intact flies.'}</p>
     </div>
   </section>;
 }
