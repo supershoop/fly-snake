@@ -19,6 +19,7 @@ import torch
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .brain import Brain
+from .audience import feedback_urls, install_audience
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
@@ -188,6 +189,7 @@ class Experiment:
         while self.inbox:
             with contextlib.suppress(KeyError, ValueError, TypeError, IndexError, AttributeError):
                 self.handle(self.inbox.pop(0))
+        audience.apply(self)
         if human_heading is not None:
             for arena in self.arenas:
                 for index, snake in enumerate(arena.snakes):
@@ -249,6 +251,7 @@ class Experiment:
 app = FastAPI()
 clients: set[WebSocket] = set()
 experiment: Experiment | None = None
+audience = install_audience(app, lambda: experiment)
 
 
 async def loop():
@@ -256,16 +259,19 @@ async def loop():
     experiment = await asyncio.to_thread(Experiment)
     record = open(os.environ["FLY_RECORD"], "a") if os.environ.get("FLY_RECORD") else None
     while True:
-        if not clients or experiment.paused:
+        if (not clients and not audience.clients) or experiment.paused:
+            await audience.publish(paused=experiment.paused)
             await asyncio.sleep(0.1)
             continue
         try:
-            message = json.dumps(await asyncio.to_thread(experiment.tick))
+            frame = await asyncio.to_thread(experiment.tick)
+            message = json.dumps(frame)
         except FileNotFoundError:  # e.g. scrambled-wiring readout not trained yet: scripts/train_readout.py --shuffled
             experiment.wiring, experiment.policy_name = "real", "trained"
             continue
         if record:
             record.write(message + "\n")
+        await audience.publish(frame, paused=experiment.paused)
         for client in list(clients):
             with contextlib.suppress(Exception):
                 await client.send_text(message)
@@ -284,7 +290,7 @@ async def socket(websocket: WebSocket):
         while True:
             message = json.loads(await websocket.receive_text())
             if experiment is not None and isinstance(message, dict) and "hello" in message:  # one-off catalogue for the lesion search
-                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue()}}))
+                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue(), "feedbackUrls": feedback_urls(websocket)}}))
                 continue
             if experiment is not None and isinstance(message, dict):
                 # Human commands are intentionally queued immediately. This

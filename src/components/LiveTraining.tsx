@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { LiveFrame, LiveStatus, PendingCommand } from '../lib/live';
+import { AudienceTraining } from './AudienceTraining';
 
-type Props = { frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; send: (message: object) => void };
+type Props = { frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; feedbackUrls: string[]; send: (message: object) => void };
 
-export function LiveTraining({ frame, status, paused, pending, send }: Props) {
+export function LiveTraining({ frame, status, paused, pending, feedbackUrls, send }: Props) {
   const [strength, setStrength] = useState(1);
   const [allFlies, setAllFlies] = useState(false);
   const [feedbackPending, setFeedbackPending] = useState<string | null>(null);
@@ -62,5 +63,6 @@ export function LiveTraining({ frame, status, paused, pending, send }: Props) {
       <p className="feedback-result" role="status" aria-live="polite">{feedbackPending ? <><i className="spinner"/>{feedbackPending}</> : result}</p>
       <p>{feedback?.positive ?? 0} positive · {feedback?.negative ?? 0} negative stimuli applied</p>
     </div>
+    <AudienceTraining urls={feedbackUrls}/>
   </>;
 }

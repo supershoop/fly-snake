@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101411">
+  <title>Train the fly · Fly Snake</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./controller.js"></script>
+</head>
+<body>
+  <main>
+    <header><a href="https://github.com/supershoop/fly-snake">fly<span>/</span>snake</a><span id="connection" class="connection" role="status">Connecting…</span></header>
+    <p class="eyebrow">Live audience training</p>
+    <h1>Help the fly learn.</h1>
+    <p class="intro">Watch a move. Reward it to encourage it, or punish it to discourage it.</p>
+    <section class="board-card" aria-label="Live fly game">
+      <div class="board-heading"><label for="fly">Following <select id="fly"><option value="selected">Host’s selected fly</option></select></label><span id="score">Waiting for game</span></div>
+      <canvas id="board" width="480" height="480" role="img" aria-label="Live Snake board; waiting for the simulation"></canvas>
+      <p id="move">Waiting for the next move…</p>
+    </section>
+    <p id="help">Connecting to the host’s live experiment…</p>
+    <div class="actions" aria-describedby="help">
+      <button id="positive" class="positive" disabled><span aria-hidden="true">+</span>Positive stimulus<small>Encourage this move</small></button>
+      <button id="negative" class="negative" disabled><span aria-hidden="true">−</span>Negative stimulus<small>Discourage this move</small></button>
+    </div>
+    <p id="receipt" class="receipt" role="status" aria-live="polite">Your feedback will be confirmed here.</p>
+    <p id="totals" class="totals">0 positive · 0 negative stimuli in this session</p>
+    <p class="note">You’re training the shared movement readout. Brain synapses stay fixed. All brain activity is simulated.</p>
+  </main>
+  <footer>Modified from <a href="https://github.com/cobanov/fly-connectome-template">fly-connectome-template</a> by <a href="https://github.com/cobanov">Mert Cobanov</a>.<br>Data: <a href="https://male-cns.janelia.org/">MaleCNS · CC BY 4.0</a></footer>
+</body>
+</html>

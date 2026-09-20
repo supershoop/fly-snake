@@ -28,6 +28,14 @@ export type LiveFrame = {
 };
 /** [type, number of cells, superclass] for every annotated neuron type; requested once with {hello: true}. */
 export type NeuronType = [string, number, string];
+/** One-off host catalogue and reachable phone controller links, returned by {hello: true}. */
+export type HelloMessage = { hello: { types: NeuronType[]; feedbackUrls?: string[] } };
+/** Feedback-only phone socket at /feedback/ws; it shares the host's experiment. */
+export type AudienceCommand = { id: string; feedback: number; fly: number | null; move: number };
+export type AudienceFrame = Pick<LiveFrame, 'policy' | 'manual' | 'selected' | 'arenas' | 'flies'> & {
+  move: number; paused: boolean; feedback: Pick<FeedbackState, 'positive' | 'negative'>;
+};
+export type AudienceMessage = { frame: AudienceFrame } | { id: string | null; receipt: NonNullable<FeedbackState['last']> };
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 export type PendingCommand = {
   message: string;
@@ -91,6 +99,7 @@ export function useLiveBrain() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
   const [status, setStatus] = useState<LiveStatus>('connecting');
   const [types, setTypes] = useState<NeuronType[]>([]);
+  const [feedbackUrls, setFeedbackUrls] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingCommand | null>(null);
   const asked = useRef(false);
   const socket = useRef<WebSocket | null>(null);
@@ -102,7 +111,7 @@ export function useLiveBrain() {
       ws.onopen = () => setStatus('live');
       ws.onmessage = event => {
         const message = JSON.parse(event.data);
-        if (message.hello) { setTypes(message.hello.types); return; }
+        if (message.hello) { setTypes(message.hello.types); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
         if (!asked.current) { asked.current = true; ws.send(JSON.stringify({ hello: true })); }
         setFrame(message);
         setPending(current => {
@@ -111,7 +120,7 @@ export function useLiveBrain() {
           return null;
         });
       };
-      ws.onclose = () => { if (closed) return; asked.current = false; setStatus('offline'); setFrame(null); setPending(null); retry = window.setTimeout(connect, 1500); };
+      ws.onclose = () => { if (closed) return; asked.current = false; setStatus('offline'); setFrame(null); setPending(null); setFeedbackUrls([]); retry = window.setTimeout(connect, 1500); };
     };
     connect();
     return () => { closed = true; clearTimeout(retry); socket.current?.close(); };
@@ -127,5 +136,5 @@ export function useLiveBrain() {
     });
     socket.current.send(JSON.stringify(message));
   }, []);
-  return { frame, status, send, types, pending };
+  return { frame, status, send, types, pending, feedbackUrls };
 }

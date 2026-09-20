@@ -48,6 +48,19 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 | `src/lib/live.ts` | Frame types + WebSocket hook. `src/App.tsx` layout/controls, `src/components/Environment.tsx` boards, `BrainScene.tsx` takes `{time, values:[bodyId, 0..1][]}` |
 
 ## WebSocket protocol (`ws://host:8000/ws`, JSON)
+`{"hello": true}` returns `{"hello": {"types": [...], "feedbackUrls": ["http://<LAN-IP>:8000/feedback/", ...]}}`.
+Training shows a QR code for this same server's phone controller. Loopback hosts are replaced with LAN addresses;
+`FLY_FEEDBACK_URL` overrides the advertised URL for a public HTTPS reverse proxy. Run the server with `--host 0.0.0.0`
+and connect phones to the same Wi-Fi/hotspot for local demos. No frontend server access is needed on phones.
+On campus networks with device isolation, `scripts/audience_gateway.py` exposes only phone assets and
+`/feedback/ws` on loopback port 8002 for an HTTPS tunnel. It forwards to the existing brain's feedback socket;
+it does not start another experiment or expose host `/ws` controls. `VITE_FEEDBACK_URL` overrides the QR URL
+at frontend build/dev startup without restarting the brain. Temporary tunnel URLs must be refreshed on restart.
+The feedback-only socket at `/feedback/ws` accepts exactly `{id: string, feedback: number, fly: number|null, move: number}`.
+It sends `{frame: {move, policy, manual, paused, selected, arenas, flies, feedback: {positive, negative}}}` and a private
+`{id, receipt}` for each request, using the existing applied/rejected receipt shape. Feedback is applied between moves
+to the shared readout; stale moves, other mode commands, paused/manual play and non-learning modes are rejected.
+
 Client -> server, any combination of keys in one message (applied between moves):
 | Key | Meaning |
 |---|---|
