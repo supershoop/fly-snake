@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 
 const WIDTH = 640, HEIGHT = 210, PAD = { left: 38, right: 118, top: 14, bottom: 28 };
 const WINDOW = 20;  // games in the rolling average
-/** Colour follows the wiring, never the order the runs happened in. Validated pair for the dark surface (dataviz validator: all checks pass). */
-const WIRING = { real: { label: 'Real wiring', color: '#199e70' }, shuffled: { label: 'Scrambled wiring', color: '#d95926' } } as const;
+/** Colour follows the wiring, never the order the runs happened in. */
+const WIRING = { real: { label: 'Real wiring', color: '#E33454' }, shuffled: { label: 'Scrambled wiring', color: '#bca4c1' } } as const;
 export type LearningRun = { wiring: keyof typeof WIRING; scores: number[] };
 const niceStep = (max: number) => [1, 2, 5, 10, 20, 50].find(step => max / step <= 5) ?? 100;
 const rolling = (scores: number[]) => scores.map((_, i) => { const slice = scores.slice(Math.max(0, i + 1 - WINDOW), i + 1); return slice.reduce((a, b) => a + b, 0) / slice.length; });
@@ -29,7 +29,7 @@ export function LearningChart({ runs, current }: { runs: LearningRun[]; current:
       {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + plotH} className="chart-crosshair"/>}
       {series.map((s, n) => { const last = s.points.length - 1, at = hover === null ? last : Math.min(hover, last); return <g key={s.wiring}>
         <path d={s.points.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-        <circle cx={x(at)} cy={y(s.points[at])} r="4" fill={s.color} stroke="#101713" strokeWidth="2"/>
+        <circle cx={x(at)} cy={y(s.points[at])} r="4" fill={s.color} stroke="#1d151e" strokeWidth="2"/>
         <text x={PAD.left + plotW + 8} y={labelY[n] + 3} className="chart-value">{s.points[at].toFixed(1)} <tspan className="chart-tick">{s.label.split(' ')[0].toLowerCase()}{hover !== null ? ` · game ${at + 1}` : ''}</tspan></text>
       </g>; })}
     </svg>
