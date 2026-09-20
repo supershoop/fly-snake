@@ -36,6 +36,15 @@ export type AudienceFrame = Pick<LiveFrame, 'policy' | 'manual' | 'selected' | '
   move: number; paused: boolean; feedback: Pick<FeedbackState, 'positive' | 'negative'>;
 };
 export type AudienceMessage = { frame: AudienceFrame } | { id: string | null; receipt: NonNullable<FeedbackState['last']> };
+/** Private authenticated socket, separate from host frames and audience feedback. */
+export type OperatorPreset = 'crash' | 'untrained' | 'legacy' | 'evolved' | 'best';
+export type OperatorCommand = { key: string } | { status: true } | { preset: OperatorPreset | 'release' };
+export type OperatorState = {
+  presets: { id: OperatorPreset; label: string; description: string }[];
+  active: OperatorPreset | null; supported: boolean; mode: PolicyName | null;
+  paused: boolean; move: number; reason: string;
+};
+export type OperatorMessage = { state: OperatorState } | { result: { ok: true; state: OperatorState } | { ok: false; reason: string } };
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 export type PendingCommand = {
   message: string;

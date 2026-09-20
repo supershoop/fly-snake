@@ -54,7 +54,7 @@ class AudienceGatewayTests(unittest.IsolatedAsyncioTestCase):
                     code, body = await asyncio.to_thread(get, path)
                     self.assertEqual(code, 200)
                     self.assertTrue(body)
-                for path in ("/ws", "/docs", "/openapi.json", "/feedback/README.md"):
+                for path in ("/ws", "/docs", "/openapi.json", "/feedback/README.md", "/operator/"):
                     self.assertEqual((await asyncio.to_thread(get, path))[0], 404)
                 with self.assertRaises(websockets.exceptions.InvalidStatus):
                     async with websockets.connect(f"ws://127.0.0.1:{port}/ws"):

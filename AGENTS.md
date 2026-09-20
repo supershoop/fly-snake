@@ -61,6 +61,18 @@ It sends `{frame: {move, policy, manual, paused, selected, arenas, flies, feedba
 `{id, receipt}` for each request, using the existing applied/rejected receipt shape. Feedback is applied between moves
 to the shared readout; stale moves, other mode commands, paused/manual play and non-learning modes are rejected.
 
+Private operator control (`flybrain/operator_control.py`, `flybrain/operator_ui/index.html`) is enabled by
+`FLY_OPERATOR_KEY`. `/operator/ws` first requires `{"key": "<secret>"}`, then accepts `{"status": true}` or
+`{"preset": "crash"|"untrained"|"legacy"|"evolved"|"best"|"release"}`. It returns `{state: {presets, active,
+supported, mode, paused, move, reason}}` and `{result: {ok, state?, reason?}}`. Only the authenticated operator
+gets selection state; public frames/hello and UI do not link to this page or announce switches. Gateway exposure
+is opt-in via `--operator-ws ws://127.0.0.1:<brain-port>/operator/ws`. The page accepts a key in a URL fragment
+for a private bookmark, then removes the fragment and authenticates over WebSocket. No key is committed.
+Five readout presets require original real wiring and Trained/Training mode; they do not promise a perfect
+brain. The crash preset is a deliberately straight-biased decoder. The others load saved readouts. Selection
+applies between moves, keeps brain simulation and boards running, expires old feedback, and trains a copy
+in Training. Release restores the cached host policy. Explicit host model/mode choices clear the override.
+
 Client -> server, any combination of keys in one message (applied between moves):
 | Key | Meaning |
 |---|---|

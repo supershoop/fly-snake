@@ -20,6 +20,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .brain import Brain
 from .audience import feedback_urls, install_audience
+from .operator_control import install_operator
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
@@ -92,6 +93,8 @@ class Experiment:
         return self.brains[self.wiring]
 
     def policy(self):
+        if getattr(self, "operator_policy", None) is not None:
+            return self.operator_policy
         key = (self.policy_name, self.wiring)
         if key not in self.policies:
             if self.policy_name == "instinct":
@@ -140,6 +143,8 @@ class Experiment:
             return self.human_moves.popleft() if self.human_moves else None
 
     def handle(self, message: dict):
+        if {"policy", "learning", "wiring", "synaptic"}.intersection(message):
+            operator.clear(self)
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
         if message.get("wiring") in ("real", "shuffled"):
@@ -189,6 +194,7 @@ class Experiment:
         while self.inbox:
             with contextlib.suppress(KeyError, ValueError, TypeError, IndexError, AttributeError):
                 self.handle(self.inbox.pop(0))
+        operator.apply(self)
         audience.apply(self)
         if human_heading is not None:
             for arena in self.arenas:
@@ -252,6 +258,7 @@ app = FastAPI()
 clients: set[WebSocket] = set()
 experiment: Experiment | None = None
 audience = install_audience(app, lambda: experiment)
+operator = install_operator(app, lambda: experiment)
 
 
 async def loop():

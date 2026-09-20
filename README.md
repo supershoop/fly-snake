@@ -97,6 +97,24 @@ Keep the laptop, gateway and tunnel running. A Quick Tunnel has a temporary URL 
 update `VITE_FEEDBACK_URL` and refresh the host page after restarting it. For a recurring event, use a named
 tunnel and a stable hostname. The host's mode controls at `/ws` are not exposed by the gateway.
 
+**Private operator page:** set `FLY_OPERATOR_KEY` to a long random secret before starting the brain server.
+Open `/operator/` on that server and enter the key, or bookmark `/operator/#<key>` to connect directly.
+The fragment is removed from the address bar and never sent in HTTP requests. The page has no links from
+the main display or audience controller. The key is required for every operator socket connection.
+To make this page available through the same HTTPS tunnel, add
+`--operator-ws ws://127.0.0.1:8000/operator/ws` to the gateway command (use the actual brain port).
+Without that flag it is absent from the gateway; without `FLY_OPERATOR_KEY` it is disabled on the brain.
+Keep the private bookmark private. Anyone holding it can select a readout for this session.
+
+Its five choices are Crash fast (straight-biased), Untrained (saved random initial readout), Original trained,
+Evolved, and Best saved (current survival-trained readout). These are approximate performance levels;
+there is no verified perfect brain model. They apply in Trained or Training with original real wiring.
+The full brain still runs each move. Changes preserve the current boards and mode, produce no main-display
+notification, and never edit saved models or synapses. Training continues from a copy of the selected
+readout, including audience feedback; feedback for decisions before the switch expires. “Return control
+to host” restores the previous host readout. A host policy, wiring, learning, or synaptic selection also
+clears the override. Restarting the server clears private selection and session learning.
+
 | File | Replace or connect |
 | --- | --- |
 | `src/components/Environment.tsx` | Your game, video or sensory scene |
