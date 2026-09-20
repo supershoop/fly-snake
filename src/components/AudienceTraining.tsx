@@ -37,7 +37,7 @@ export function AudienceTraining({ urls }: { urls: string[] }) {
       </> : <p role="status">Restart the updated brain server with <code>--host 0.0.0.0</code> to get a phone link.</p>}
     </div>
     {url && <a className="audience-qr" href={url} target="_blank" rel="noreferrer" aria-label="Open the phone feedback controller">
-      <QRCodeSVG value={url} size={196} level="M" marginSize={4} title="Scan to teach the fly which way to move"/>
+      <QRCodeSVG value={url} size={240} level="M" marginSize={4} title="Scan to teach the fly which way to move"/>
       <span>Scan to train the fly</span>
     </a>}
   </section>;

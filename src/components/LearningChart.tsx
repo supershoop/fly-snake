@@ -33,7 +33,7 @@ export function LearningChart({ runs, current }: { runs: LearningRun[]; current:
         <text x={PAD.left + plotW + 8} y={labelY[n] + 3} className="chart-value">{s.points[at].toFixed(1)} <tspan className="chart-tick">{s.label.split(' ')[0].toLowerCase()}{hover !== null ? ` · game ${at + 1}` : ''}</tspan></text>
       </g>; })}
     </svg>
-    <details className="chart-table"><summary>Show as table</summary><table><thead><tr><th scope="col">After game</th>{series.map(s => <th key={s.wiring} scope="col">{s.label}</th>)}</tr></thead>
-      <tbody>{Array.from({ length: games }, (_, i) => i).filter(i => i === games - 1 || (i + 1) % Math.max(10, Math.ceil(games / 12 / 10) * 10) === 0).map(i => <tr key={i}><td>{i + 1}</td>{series.map(s => <td key={s.wiring}>{s.points[i]?.toFixed(1) ?? '–'}</td>)}</tr>)}</tbody></table></details>
+    <details className="chart-table"><summary>Show complete table</summary><div className="chart-table-scroll"><table><thead><tr><th scope="col">Game</th>{series.map(s => <th key={s.wiring} scope="col">{s.label}<small>rolling avg.</small></th>)}</tr></thead>
+      <tbody>{Array.from({ length: games }, (_, i) => i).map(i => <tr key={i}><th scope="row">{i + 1}</th>{series.map(s => <td key={s.wiring}>{s.points[i]?.toFixed(1) ?? '–'}</td>)}</tr>)}</tbody></table></div></details>
   </figure>;
 }

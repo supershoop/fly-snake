@@ -107,7 +107,7 @@ export function App() {
     <header className="site-header">
       <a className="brand" href="#" aria-label="snake flies home"><span className="brand-mark"><img className="brand-logo" src="/snakeflies.svg" alt="" /></span><span>snake flies</span></a>
       <span className="header-caption">A tiny brain experiment that plays Snake</span>
-      <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
+      <nav aria-label="Project links"><a href="https://github.com/supershoop/fly-snake/tree/main" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a><a href="https://devpost.com/software/fly-snake" target="_blank" rel="noreferrer">Devpost <span aria-hidden="true">↗</span></a></nav>
     </header>
     <main id="experiment">
       <section className="intro" aria-labelledby="page-title">

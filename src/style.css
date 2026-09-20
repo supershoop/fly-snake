@@ -306,11 +306,11 @@ body::before {
 @media (max-width: 760px) { .leaderboard { grid-template-columns: 1fr; } }
 
 /* Learning curve (Training mode) */
-.learning-chart { position: relative; z-index: 2; margin: 0; padding: 18px 24px 10px; } .learning-chart figcaption { color: var(--cornsilk-50); font-size: 13px; font-weight: 800; } .learning-chart figcaption small { color: #fffce5ba; margin-left: 8px; font-weight: 500; }
-.learning-chart svg { display: block; width: 100%; max-width: 820px; height: auto; touch-action: none; }
+.learning-chart { position: relative; z-index: 2; width: 100%; max-width: 1320px; margin: 0 auto; padding: 22px clamp(20px, 4vw, 48px) 18px; } .learning-chart figcaption { color: var(--cornsilk-50); font-size: 13px; font-weight: 800; } .learning-chart figcaption small { color: #fffce5ba; margin-left: 8px; font-weight: 500; }
+.learning-chart svg { display: block; width: 100%; max-width: none; height: auto; touch-action: none; }
 .chart-grid { stroke: #fffce536; stroke-width: 1; } .chart-reference { stroke: #fffce566; stroke-width: 1; stroke-dasharray: 4 4; } .chart-crosshair { stroke: #fffce599; stroke-width: 1; }
 .chart-tick { fill: #fffce5ad; font-size: 10px; } .chart-value { fill: var(--cornsilk-50); font-size: 11px; font-weight: 700; } .chart-empty { padding: 18px 24px; color: var(--cornsilk-50); font-size: 11px; }
-.chart-table { font-size: 11px; color: #fffce5cf; } .chart-table table { border-collapse: collapse; margin-top: 6px; } .chart-table th, .chart-table td { text-align: left; padding: 2px 16px 2px 0; }
+.chart-table { padding-top: 12px; color: #fffce5cf; font-size: 11px; } .chart-table summary { width: fit-content; cursor: pointer; color: var(--cornsilk-50); font-weight: 750; } .chart-table-scroll { max-height: 320px; margin-top: 10px; overflow: auto; border: 1px solid #fffce555; border-radius: 8px; } .chart-table table { width: 100%; min-width: 360px; border-collapse: collapse; } .chart-table th, .chart-table td { padding: 7px 14px; border-bottom: 1px solid #fffce533; text-align: right; font-variant-numeric: tabular-nums; } .chart-table th:first-child, .chart-table td:first-child { text-align: left; } .chart-table thead th { position: sticky; top: 0; z-index: 1; color: var(--cornsilk-50); background: var(--midnight-violet-900); text-align: right; } .chart-table thead small { display: block; margin-top: 2px; color: #fffce5a8; font-size: 8px; font-weight: 500; } .chart-table tbody th { color: var(--cornsilk-50); font-weight: 700; } .chart-table tbody tr:nth-child(even) { background: #fffce50d; } .chart-table tbody tr:last-child > * { border-bottom: 0; }
 
 .chart-legend { display: flex; gap: 16px; color: #fffce5d9; font-size: 11px; margin: 8px 0 2px; } .chart-legend i { display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; }
 
@@ -418,7 +418,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .environment-control .segmented button:hover:not(:disabled), .brain-select:hover:not(:disabled) { background-color: var(--environment-hover-red); transform: translate(-1px, -1px); box-shadow: 2px 3px 0 var(--ink); }
 
 /* Live learning is split into a clear start panel, automatic stimuli, then phone teaching. */
-.readout.learning { display: block; padding: 0; }
+.readout.learning { display: block; padding: 0; border-top: 2px solid #fffce555; }
 .learning-console { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.25fr); }
 .learning-overview, .learning-stimuli { min-width: 0; padding: 24px; }
 .learning-overview { display: flex; flex-direction: column; border-right: 2px solid #fffce555; }
