@@ -145,7 +145,7 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
     </div>
     <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
     <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas">
-      {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : "Loading anatomy"}</span>}
+      {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : <><i className="spinner"/>Loading anatomy…</>}</span>}
 
     </div>
   </>;

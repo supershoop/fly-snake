@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LiveFrame, LiveStatus } from '../lib/live';
+import type { LiveFrame, LiveStatus, PendingCommand } from '../lib/live';
 
 const INPUTS = [
   { name: 'food_L', label: 'Food left', type: 'LC10 L' },
@@ -9,11 +9,12 @@ const INPUTS = [
   { name: 'danger_ahead', label: 'Threat ahead', type: 'LPLC2' },
 ];
 
-export function NeuralReadout({ frame, status, paused, send }: { frame: LiveFrame | null; status: LiveStatus; paused: boolean; send: (message: object) => void }) {
+export function NeuralReadout({ frame, status, paused, pending, send }: { frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; send: (message: object) => void }) {
   const [held, setHeld] = useState<string | null>(null);
   const active = useRef<string | null>(null);
   const fly = frame?.flies[frame.selected];
   const ready = status === 'live' && !!frame && !paused;
+  const applyingInput = pending?.manual !== undefined;
   const release = useCallback(() => {
     if (active.current === null) return;
     active.current = null; setHeld(null); send({ stimulate: null });
@@ -47,7 +48,7 @@ export function NeuralReadout({ frame, status, paused, send }: { frame: LiveFram
       <p className="signal-note">{frame?.policy === 'hardwired' ? 'Steering neurons choose the turn. Nothing trained.' : 'A linear readout converts neural activity into a move.'}</p>
     </div>
     <div className="signal-block input-block">
-      <div className="block-heading"><h3>Try a sensory input</h3><span className={held ? 'accent-text' : ''}>{held ? 'Override active' : 'Press & hold'}</span></div>
+      <div className="block-heading"><h3>Try a sensory input</h3><span className={held || applyingInput ? 'accent-text' : ''}>{held ? 'Override active' : applyingInput ? <><i className="spinner"/>{pending.message}</> : 'Press & hold'}</span></div>
       <div className="sensory-buttons">{INPUTS.map(({ name, label, type }) => <button key={name} disabled={!ready} aria-pressed={held === name} title={`Hold to stimulate ${type}. Release to return to the game.`}
         onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); hold(name); }}
         onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onBlur={release}

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { LiveFrame, LiveStatus, NeuronType } from '../lib/live';
+import type { LiveFrame, LiveStatus, NeuronType, PendingCommand } from '../lib/live';
 
 /** Relay cells found by path search in the connectome (scripts/lesion_scores.py), not chosen by hand-tuning. */
 const PRESETS: { label: string; hint: string; types: string[] }[] = [
@@ -13,7 +13,7 @@ const PRESETS: { label: string; hint: string; types: string[] }[] = [
 ];
 
 /** Rendered only while at least one fly is picked; every action applies to exactly the picked flies. */
-export function LesionLab({ frame, status, paused = false, types, picked, send }: { frame: LiveFrame; status: LiveStatus; paused?: boolean; types: NeuronType[]; picked: number[]; send: (message: object) => void }) {
+export function LesionLab({ frame, status, paused = false, pending, types, picked, send }: { frame: LiveFrame; status: LiveStatus; paused?: boolean; pending: PendingCommand | null; types: NeuronType[]; picked: number[]; send: (message: object) => void }) {
   const [query, setQuery] = useState('');
   const enabled = status === 'live' && !paused;
   const flies = picked.filter(fly => fly < frame.flies.length);
@@ -44,6 +44,7 @@ export function LesionLab({ frame, status, paused = false, types, picked, send }
     <div><strong>SILENCE NEURONS · {names.toUpperCase()}</strong>
       <p>Silenced neurons cannot spike; nothing else changes. Pick more boards to act on several flies at once, and compare them with the intact ones.</p>
       {frame.policy !== 'hardwired' && frame.policy !== 'instinct' && <p className="lesion-note" role="note">In {frame.policy === 'learning' ? 'Training' : 'Trained'} mode the readout listens to all 1,314 descending neurons and works around missing ones, so lesions rarely change how the snake plays. Switch Brain to <strong>Normal</strong> to see the behaviour break.</p>}
+      {pending?.message === 'Applying the lesion…' && <p className="pending-text" role="status"><i className="spinner"/>Applying lesion to the simulation…</p>}
       <div className="controls">{PRESETS.map(preset => <button key={preset.label} disabled={!enabled} title={preset.hint} aria-pressed={inAll(preset.types)} onClick={() => toggle(preset.types)}>{preset.label}</button>)}</div>
       <p>{silencedAnywhere.length ? <>Silenced: {silencedAnywhere.map(pattern => <button key={pattern} disabled={!enabled} className="chip" aria-label={`Remove ${pattern} lesion`} title={`Remove ${pattern} lesion from ${names}`}
         onClick={() => flies.forEach((_, i) => setLesion(i, lesions[i].filter(p => p !== pattern)))}>{pattern.replace('.*', '')} <small>×{cellsFor(pattern)}</small> <span aria-hidden="true">×</span></button>)}
