@@ -76,7 +76,7 @@ Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google
 
 ## Training, audience phones and the operator page
 
-This fork also includes the Fly Snake simulator and trained descending-neuron
+This fork also includes the snake flies simulator and trained descending-neuron
 readout. See [survival training and measured results](docs/TRAINING.md) for the
 training command, comparison with the original model, and remaining limitations.
 
@@ -84,6 +84,18 @@ For reward-driven training over thousands of generations, see
 [evolution training and independent evaluation](docs/EVOLUTION.md). The trainer
 starts random linear readouts, evolves them from game scores, and keeps the
 connectome fixed. The saved experimental winner has not replaced the demo model.
+
+For the experiment that learns **inside the fly brain**, see
+[synaptic learning](docs/SYNAPTIC_LEARNING.md). It adjusts existing steering
+connections from game rewards while keeping the movement readout fixed.
+Every move runs the continuous whole connectome. The web app can select the
+saved experimental brain separately from the original readout-based modes.
+
+For full-board sensory input instead of the 24-pattern encoder, see
+[direct-board learning](docs/DIRECT_BOARD_LEARNING.md). This separate experiment
+starts from the original brain, maps the board into 1,587 visual neurons, and
+evolves bounded internal synaptic strengths with a fixed movement decoder.
+Its saved model is not automatically loaded into the web demo.
 
 **Retrain existing readout** starts live learning from a copy of the trained
 model; **Start blank** starts over. Positive and negative

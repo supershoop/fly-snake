@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type Layout = 'solo' | 'swarm' | 'versus' | 'arena';
 export type PolicyName = 'trained' | 'hardwired' | 'instinct' | 'learning';
 export type Wiring = 'real' | 'shuffled';
+export type StimulusChoice = 'positive' | 'negative' | 'none';
+export type EventStimulusSettings = { food: StimulusChoice; death: StimulusChoice };
 export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number; highScore: number };
 export type ArenaState = { size: number; foods: [number, number][]; snakes: SnakeState[] };
 export type FlyState = {
@@ -11,7 +13,7 @@ export type FlyState = {
   reward: number; steer: Record<string, number>; lesion: string[]; feedbackEligible?: boolean;
   /** Pre-move facing this decision was made from; phone D-pad votes resolve against it. */
   heading?: number;
-  /** What this fly is feeling during this brain window: it just ate (sugar taste) or just died (heat sensors). */
+  /** Selected sensory cue during this brain window; food and death can each trigger either cue or none. */
   event?: 'taste' | 'pain' | null;
 };
 export type FeedbackState = {
@@ -27,6 +29,10 @@ export type LiveFrame = {
   time: number; move?: number; layout: Layout; wiring: Wiring; policy: PolicyName; manual: boolean; sensor: Record<string, number>;
   /** Moves/second actually achieved on the last tick; a stepRate cap can only slow this down. */
   stepRate?: number;
+  /** Host-selected sensory stimuli, shared by all flies; game/readout rewards are independent. */
+  eventStimuli?: EventStimulusSettings;
+  eventStimulusError?: string | null;
+  events?: boolean;
   arenas: ArenaState[]; flies: FlyState[]; selected: number; lesionPresets: string[];
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
@@ -41,6 +47,9 @@ export type LiveFrame = {
   thermal?: { gpu: number | null; state: 'ok' | 'slow' | 'cooling' | 'off'; slowAt: number; pauseAt: number };
   /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
   silencedByFly?: Record<string, number[]>;
+  synaptic?: { available: boolean; error: string | null; active: {
+    generation: number; connections: number; changedConnections: number; groups: number; decoder: string;
+  } | null };
 };
 /** [type, number of cells, superclass] for every annotated neuron type; requested once with {hello: true}. */
 export type NeuronType = [string, number, string];

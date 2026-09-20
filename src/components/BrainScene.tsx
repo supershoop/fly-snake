@@ -9,8 +9,8 @@ export const PATHWAYS: Record<string, { label: string; color: string; hint: stri
   pursuit: { label: "Food pursuit", color: "#c98500", hint: "Object detectors LC10 -> AOTU relay cells -> steering neuron DNa02" },
   escape: { label: "Escape", color: "#d95926", hint: "Looming detectors LC4 and LPLC2 -> giant fiber DNp01" },
   turnaway: { label: "Turn away", color: "#3987e5", hint: "LC4 -> PVLP relay cells -> DNa01 on the opposite side" },
-  feeding: { label: "Feeding", color: "#199e70", hint: "Sugar taste neurons -> feeding motor neuron MN9 (fires when the snake eats)" },
-  pain: { label: "Pain", color: "#d55181", hint: "Heat sensors -> punishment dopamine neurons PPL1 (fires when the snake dies)" },
+  feeding: { label: "Feeding", color: "#199e70", hint: "Sugar taste neurons -> feeding motor neuron MN9 (positive event stimulus)" },
+  pain: { label: "Pain", color: "#d55181", hint: "Heat sensors -> punishment dopamine neurons PPL1 (negative event stimulus)" },
 };
 const SILENCED = "#9085e9";
 const FULL_RATE_HZ = 150;

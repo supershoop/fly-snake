@@ -24,11 +24,13 @@ from .operator_control import install_operator
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
+from .event_stimuli import EventStimuli
 from .leaderboard import Leaderboard, clean_name
 from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
 from .vision import VisionDisplay, VisionUntrained, build_retina
 from .snake import Arena, HEADING_NAMES
 from .thermal import ThermalGuard
+from .synaptic import SynapticAdapter, SynapticSites
 
 warnings.filterwarnings("ignore")
 WINDOW_MS = 100.0
@@ -36,6 +38,7 @@ FULL_SCALE_HZ = 100.0  # activity sent to the viewer = firing rate / FULL_SCALE_
 SENSOR_HOLD_S = 0.6    # an external sensor reading goes stale after this long
 HUMAN_INPUT_BUFFER = 2  # one upcoming turn plus one follow-up turn; repeated keydown events are coalesced
 ATLAS = Path(__file__).resolve().parents[1] / "public/data/brain-atlas"
+SYNAPTIC_MODEL = Path(__file__).resolve().parents[1] / "models/brain-synaptic.npz"
 LAYOUTS = {  # name -> list of arenas, each (board size, snake kinds, foods)
     "solo": [(12, ("fly",), 1)],
     "swarm": [(12, ("fly",), 1)] * 16,
@@ -70,11 +73,14 @@ class Experiment:
         event_cells = np.flatnonzero(np.any(event_masks, axis=0))
         self.event_matrix = torch.as_tensor(np.stack([m[event_cells] for m in event_masks], axis=1).astype(np.float32), device=self.device)  # [cells, events]
         self.events_enabled = True
+        self.event_stimuli, self.event_stimulus_error = EventStimuli(), None
         self.leaderboard, self.player, self.round_over = Leaderboard(), "anonymous", False
         self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device), torch.as_tensor(event_cells, device=self.device)])
         self.steer = {f"{kind}_{side}": torch.as_tensor(np.flatnonzero((readout["type"].eq(kind) & readout["side"].eq(side)).to_numpy()), device=self.device)
                       for kind in STEER_TYPES + ["DNp01"] for side in "LR"}
         self.brains, self.policies = {}, {}
+        self.synaptic_parameters, self.synaptic_metadata, self.synaptic_sites = None, None, None
+        self.synaptic_error = None
         self.wiring, self.policy_name = "real", "trained"
         self.paused, self.override, self.selected, self.clock = False, None, 0, 0.0
         self.sensor, self.sensor_seen = {}, 0.0
@@ -108,16 +114,45 @@ class Experiment:
             brain.resize(len(self.flies))
 
     def brain(self) -> Brain:
-        if self.wiring not in self.brains:
-            self.brains[self.wiring] = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled",
-                                              device=str(self.device))
+        key = "synaptic" if self.synaptic_parameters is not None else self.wiring
+        if key not in self.brains:
+            brain = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled",
+                          device=str(self.device))
+            if self.synaptic_parameters is not None:
+                SynapticAdapter(brain, self.synaptic_sites).apply(self.synaptic_parameters)
+            self.brains[key] = brain
             self.apply_lesions()
-        return self.brains[self.wiring]
+        return self.brains[key]
+
+    def set_synaptic(self, enabled: bool):
+        """Validate before switching; original anatomy/readouts remain available."""
+        if enabled:
+            try:
+                sites = self.synaptic_sites or SynapticSites.from_connectome(self.connectome)
+                parameters, metadata = sites.load(SYNAPTIC_MODEL)
+            except (OSError, ValueError, KeyError) as error:
+                self.synaptic_error = str(error)
+                return
+            self.synaptic_sites, self.synaptic_parameters = sites, parameters
+            self.synaptic_metadata = {"generation": metadata.get("generation", 0), "connections": len(sites.pre),
+                                      "changedConnections": int(np.count_nonzero(np.abs(parameters[sites.group]) > 1e-8)),
+                                      "groups": len(sites.labels), "decoder": "fixed DNa02/DNa01 steering"}
+            self.policy_name = "hardwired"
+        else:
+            self.synaptic_parameters, self.synaptic_metadata = None, None
+            self.policy_name = "trained"
+        self.brains.pop("synaptic", None)
+        self.wiring, self.override, self.sensor, self.synaptic_error = "real", None, {}, None
+        self.sensor_seen, self.paused = 0., False
+        lesions = self.lesions
+        self.set_layout(self.layout)
+        self.lesions = lesions
+        self.apply_lesions()
 
     def policy(self):
         if getattr(self, "operator_policy", None) is not None:
             return self.operator_policy
-        retina = self.encoder == "retina"
+        retina = self.encoder == "retina" and self.synaptic_parameters is None
         key = (self.policy_name, self.wiring, "retina") if retina else (self.policy_name, self.wiring)
         if key not in self.policies:
             if self.policy_name == "instinct":
@@ -168,10 +203,27 @@ class Experiment:
     def handle(self, message: dict):
         if {"policy", "learning", "wiring", "synaptic"}.intersection(message):
             operator.clear(self)
+        if type(message.get("synaptic")) is bool:
+            self.set_synaptic(message["synaptic"])
+            # An explicit brain selection takes precedence over mixed policy commands.
+            message = {key: value for key, value in message.items() if key not in ("policy", "wiring", "learning")}
+        elif self.synaptic_parameters is not None and (
+                message.get("wiring") == "shuffled" or message.get("policy") in ("trained", "learning", "instinct")
+                or message.get("learning") in ("reset", "pretrained")):
+            self.set_synaptic(False)
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
-        if "events" in message:  # taste on eating, pain on dying
+        if "events" in message:  # legacy master switch for game-event sensory cues
             self.events_enabled = bool(message["events"])
+            self.pending_events.fill(0)
+        if "eventStimuli" in message:
+            try:
+                self.event_stimuli.update(message["eventStimuli"])
+            except ValueError as error:
+                self.event_stimulus_error = str(error)
+            else:
+                self.events_enabled, self.event_stimulus_error = True, None
+                self.pending_events.fill(0)  # a previous choice must not fire after the new setting is applied
         if message.get("encoder") in ("channels", "retina"):  # 5 on/off channels, or the connectome-derived retinotopic eye
             self.encoder = message["encoder"]
         if message.get("wiring") in ("real", "shuffled"):
@@ -234,7 +286,7 @@ class Experiment:
             self.round_over = False
             for arena in self.arenas:
                 arena.reset()
-            brain_now = self.brains.get(self.wiring)
+            brain_now = self.brains.get("synaptic" if self.synaptic_parameters is not None else self.wiring)
             if brain_now is not None:
                 brain_now.reset()
         if human_heading is not None:
@@ -268,7 +320,7 @@ class Experiment:
         dn_counts = counts[self.readout_index]
         actions, probabilities = policy.act(dn_counts)
         actions = actions.tolist()
-        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # that fly died: its next life starts with a quiet brain
+        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # heat activity otherwise sustains itself after the cue
 
         rewards = np.zeros(len(self.flies), dtype=np.float32)
         eligible = [False] * len(self.flies)
@@ -285,10 +337,9 @@ class Experiment:
                         eligible[f] = s in outcome
                         if s in outcome and not arena.snakes[s].alive:
                             self.history.append(arena.snakes[s].last_score)
-                        if self.events_enabled and rewards[f] >= 1:
-                            self.pending_events[EVENT_NAMES.index("taste"), f] = 1.0
-                        if self.events_enabled and rewards[f] <= -1:
-                            self.pending_events[EVENT_NAMES.index("pain"), f] = 1.0
+                        cue = self.event_stimuli.cue(rewards[f]) if self.events_enabled and s in outcome else None
+                        if cue is not None:
+                            self.pending_events[EVENT_NAMES.index(cue), f] = 1.0
         if self.layout == "versus" and self.override is None:
             for arena in self.arenas:
                 humans = [snake for snake in arena.snakes if snake.kind == "human"]
@@ -310,6 +361,7 @@ class Experiment:
         steer = {name: (dn_counts[index].sum(dim=0) / max(1, len(index)) / seconds).tolist() for name, index in self.steer.items()}
         return {
             "time": round(self.clock, 3), "move": self.move, "layout": self.layout, "wiring": self.wiring, "policy": self.policy_name,
+            "synaptic": {"available": SYNAPTIC_MODEL.is_file(), "active": self.synaptic_metadata, "error": self.synaptic_error},
             "manual": self.override is not None, "sensor": self.sensor if time.monotonic() - self.sensor_seen < SENSOR_HOLD_S else {},
             "arenas": [arena.render_state() for arena in self.arenas],
             # "heading" is the pre-move facing this decision was made from, which is what a
@@ -322,6 +374,7 @@ class Experiment:
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
             "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder, "events": self.events_enabled,
+            "eventStimuli": self.event_stimuli.state(self.events_enabled), "eventStimulusError": self.event_stimulus_error,
             "leaderboard": {"player": self.player, "top": self.leaderboard.top(), **self.leaderboard.tally()} if self.layout == "versus" else None,
             "vision": self.display.live(counts[:, self.selected], WINDOW_MS / 1000, view[:, self.selected]),
             "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
@@ -334,8 +387,8 @@ class Experiment:
 
 
     def event_frame(self, frame: dict) -> dict | None:
-        """The game is holding for a death scene: let the brain feel what is pending (the pain) now, with no game move, so
-        the flash is seen while the fly flails. Returns the same frame with fresh brain activity, or None if nothing is pending."""
+        """During a death scene, deliver the selected pending cues without another game move.
+        Returns the same frame with fresh brain activity, or None if no cue was selected."""
         if not self.pending_events.any():
             return None
         brain = self.brain()

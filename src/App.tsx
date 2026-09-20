@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainScene } from './components/BrainScene';
 import { FlyScene, type FlyAnimation, type FlyCommand, type FlyDirection } from './components/FlyScene';
 import { Environment } from './components/Environment';
@@ -7,7 +7,8 @@ import { LiveTraining } from './components/LiveTraining';
 import { LesionLab } from './components/LesionLab';
 import { FlyView } from './components/FlyView';
 import { Leaderboard } from './components/Leaderboard';
-import { LearningChart, type LearningRun } from './components/LearningChart';
+import type { LearningRun } from './components/LearningChart';
+import { Onboarding } from './components/Onboarding';
 import { ExperimentControls } from './components/ExperimentControls';
 import { Icon } from './components/Icon';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
@@ -35,6 +36,7 @@ const INTRO_COPY = {
 export function App() {
   const [atlas, setAtlas] = useState<Atlas | null>(null);
   const [error, setError] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const paused = false;  // pausing was removed from the interface; components still accept the flag
   const [picked, setPicked] = useState<number[]>([]);
   const [deathSeconds, setDeathSeconds] = useState(0);
@@ -95,13 +97,15 @@ export function App() {
   }, [frame?.layout, frame?.manual, paused, send]);
   const resume = () => send({ paused: false, stimulate: null });
   const connection = status === 'live' ? (frame ? paused ? 'Paused' : 'Live simulation' : 'Waiting for simulation') : status === 'connecting' ? 'Connecting' : 'Server offline';
+  const finishOnboarding = useCallback(() => setShowOnboarding(false), []);
 
   return <>
+    {showOnboarding && <Onboarding onComplete={finishOnboarding}/>}
     <a className="skip-link" href="#experiment">Skip to experiment</a>
     <header className="site-header">
-      <a className="brand" href="#" aria-label="Fly Snake home"><span className="brand-mark"><Icon name="snake" size={23}/></span><span>fly<span className="brand-divider">/</span>snake</span></a>
+      <a className="brand" href="#" aria-label="snake flies home"><span className="brand-mark"><img className="brand-logo" src="/snakeflies.svg" alt="" /></span><span>snake flies</span></a>
       <span className="header-caption">A tiny brain experiment that plays Snake</span>
-      <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
+      <nav aria-label="Page navigation"><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
     </header>
     <main id="experiment">
       <section className="intro" aria-labelledby="page-title">
@@ -132,10 +136,10 @@ export function App() {
       {frame?.layout === 'versus' && <Leaderboard frame={frame} send={send}/>}
       {frame && (picked.length > 0 || frame.policy === 'learning') && <section className="experiment-lab" id="lab" aria-label="Experiment lab">
         {picked.length > 0 && <details className="lab-disclosure" open><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Lesion lab<small>Silence a circuit in the picked {picked.length === 1 ? 'fly' : 'flies'}. Observe what changes.</small></span><span className="disclosure-tag">{picked.length === 1 ? `Fly ${picked[0] + 1}` : `${picked.length} flies`}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LesionLab frame={frame} status={status} paused={paused} pending={pending} types={types} picked={picked} send={send}/></details>}
-        {frame.policy === 'learning' && <details className="lab-disclosure" open><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">Learning active · {frame.learning.games} games · mean {average}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LearningChart runs={(['real', 'shuffled'] as const).flatMap(wiring => runs[wiring] ? [{ wiring, scores: runs[wiring]! }] : [])} current={frame.wiring}/><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} pending={pending} feedbackUrls={feedbackUrls} send={send}/></div></details>}
+        {frame.policy === 'learning' && <details className="lab-disclosure" open><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">Learning active · {frame.learning.games} games · mean {average}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} pending={pending} feedbackUrls={feedbackUrls} runs={(['real', 'shuffled'] as const).flatMap(wiring => runs[wiring] ? [{ wiring, scores: runs[wiring]! }] : [])} send={send}/></div></details>}
       </section>}
       <details className="lab-disclosure fly-view-disclosure"><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Fly’s-eye view<small>What the fly is shown, mapped onto its own eye, and the option to play through the retina.</small></span><span className="disclosure-tag">{frame?.encoder === 'retina' ? 'Retina encoder on' : 'Optional'}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><FlyView frame={frame} vision={vision} send={send}/></details>
-      <details className="scientific-scope"><summary>About the simulation, scope & data sources</summary><p><strong>Simulated, never recorded.</strong> A leaky integrate-and-fire model runs on the MaleCNS v1.0 connectome. The game supplies engineered sensory inputs; the descending neurons pick the move. Brain synapses stay fixed; only a readout is ever trained.</p><p>The atlas shows curated cell-body positions, not neurite branches or synaptic connections. Points keep their native proportions. Optic, central and descending classes are drawn; nerve-cord neurons are simulated but not shown.</p><p>Game threats include collisions and loss of a route to the moving tail. This is engineered spatial preprocessing, not evidence of biological route planning. Simulated firing rates over 100 ms are divided by 100 Hz and clamped to [0, 1] for display. The LIF model follows Shiu et al. 2024 with MaleCNS scaling.</p><p>Dataset creators: FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research. <a href="https://male-cns.janelia.org/download/">MaleCNS data and publication</a>, CC BY 4.0. <a href={asset('data/brain-atlas/manifest.json')}>Source, filters and hashes</a>. This is a modified fly-connectome-template; third-party assets retain their own licenses.</p></details>
+      <details className="scientific-scope"><summary>About the simulation, scope & data sources</summary><p><strong>Simulated, never recorded.</strong> A leaky integrate-and-fire model runs on the MaleCNS v1.0 connectome. The game supplies engineered sensory inputs; the descending neurons pick the move. Default modes keep brain synapses fixed. The separate synaptic experiment loads bounded changes to existing steering connections and uses a fixed DNa02/DNa01 readout; this is engineered plasticity, not a measured fly learning rule.</p><p>The atlas shows curated cell-body positions, not neurite branches or synaptic connections. Points keep their native proportions. Optic, central and descending classes are drawn; nerve-cord neurons are simulated but not shown.</p><p>Game threats include collisions and loss of a route to the moving tail. This is engineered spatial preprocessing, not evidence of biological route planning. Simulated firing rates over 100 ms are divided by 100 Hz and clamped to [0, 1] for display. The LIF model follows Shiu et al. 2024 with MaleCNS scaling.</p><p>Dataset creators: FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research. <a href="https://male-cns.janelia.org/download/">MaleCNS data and publication</a>, CC BY 4.0. <a href={asset('data/brain-atlas/manifest.json')}>Source, filters and hashes</a>. This is a modified fly-connectome-template; third-party assets retain their own licenses.</p></details>
     </main>
     <Attribution/>
   </>;

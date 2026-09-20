@@ -1,14 +1,15 @@
-.audience-training { grid-column: 1 / -1; display: flex; gap: 32px; align-items: center; padding-top: 25px; border-top: 1px solid var(--line); }
-.audience-copy { flex: 1; min-width: 0; max-width: 640px; }
-.audience-copy h3 { font-family: Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -.5px; margin: 12px 0; }
-.audience-copy .audience-link { display: block; color: var(--accent); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; margin: 12px 0; }
+.audience-training { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; min-width: 0; padding: 25px 24px; border-top: 2px solid #fffce555; }
+.audience-copy { flex: 1 1 200px; min-width: 0; max-width: 640px; }
+.audience-copy h3 { color: var(--cornsilk-50); font-family: Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -.5px; margin: 12px 0; }
+.audience-copy .audience-link { display: block; color: var(--cornsilk-50); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; margin: 12px 0; }
+.audience-copy p, .audience-copy label { color: #fff; }
 .audience-copy .controls { align-items: center; gap: 18px; }
 .audience-copy .controls a { font-size: 11px; }
 .audience-copy .audience-copy-result { min-height: 1.5em; margin: 6px 0; font-size: 11px; }
-.audience-copy details { color: var(--muted); font-size: 11px; }
+.audience-copy details { color: #fffce5c9; font-size: 11px; }
 .audience-copy summary { cursor: pointer; }
 .audience-copy select { max-width: 100%; }
 .audience-qr { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 12px; background: var(--cornsilk-50); border-radius: 10px; text-decoration: none; }
 .audience-qr svg { width: 196px; height: 196px; }
 .audience-qr span { color: var(--midnight-violet-900); font-size: 11px; margin: 3px 0 6px; }
-@media (max-width: 600px) { .audience-training { flex-direction: column-reverse; align-items: flex-start; gap: 22px; } .audience-qr { align-self: center; } }
+@media (max-width: 600px) { .audience-training { flex-direction: column-reverse; flex-wrap: nowrap; align-items: flex-start; gap: 22px; padding: 22px 20px; } .audience-copy { flex-basis: auto; } .audience-qr { align-self: center; } }

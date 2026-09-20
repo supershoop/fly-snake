@@ -1,4 +1,4 @@
-"""The only trained part: a linear map from descending-neuron spike counts to left / straight / right."""
+"""Readout-only policies; the separate synaptic experiment freezes HardwiredPolicy."""
 from pathlib import Path
 
 import numpy as np

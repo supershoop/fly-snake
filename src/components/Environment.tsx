@@ -18,15 +18,16 @@ function Board({ arena, label, onSnake }: { arena: ArenaState; label: string; on
     {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="#fff" opacity=".22"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="#fff"/></g>)}
     {arena.snakes.map((snake, s) => {
       const [headX, headY] = snake.body[0] ?? [0, 0];
-      const bodyColor = 'var(--mauve)';
-      const headColor = 'var(--mauve)';
+      const bodyColor = snake.kind === 'human' ? 'var(--player-snake)' : 'var(--mauve)';
+      const headAsset = snake.kind === 'human' ? '/player-head.svg' : '/fly-head.svg';
       const points = snake.body.map(([x, y]) => `${(x + .5) * CELL},${(y + .5) * CELL}`).join(' ');
       const interactive = onSnake && snake.kind === 'fly';
       const opacity = snake.alive ? 1 : .3;
+      const headCenterX = (headX + .5) * CELL, headCenterY = (headY + .5) * CELL;
       return <g key={s} onClick={interactive ? () => onSnake(s) : undefined} style={interactive ? { cursor: 'pointer' } : undefined} opacity={opacity}>
         {/* One rounded stroke makes adjacent grid cells read as a single moving body. */}
         {snake.body.length > 1 && <polyline points={points} fill="none" stroke={bodyColor} strokeWidth={CELL - 4} strokeLinecap="round" strokeLinejoin="round"/>}
-        <circle cx={(headX + .5) * CELL} cy={(headY + .5) * CELL} r={(CELL - 4) / 2} fill={headColor} stroke="var(--cream)" strokeWidth="1.4"/>
+        <image href={headAsset} x={headX * CELL} y={headY * CELL} width={CELL} height={CELL} transform={`rotate(${snake.heading * 90} ${headCenterX} ${headCenterY})`} preserveAspectRatio="xMidYMid meet" pointerEvents="none" aria-hidden="true"/>
         {snake.body.length > 1 && <polyline points={points} fill="none" stroke="var(--cream)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".2"/>}
       </g>;
     })}
@@ -59,7 +60,7 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
     </div>
     <div className={`board-stage ${many ? 'swarm-stage' : ''}`}>
       <div className="game-window">
-        <div className="game-window-bar"><span>fly_snake.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
+        <div className="game-window-bar"><span>snake flies.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
         <div className={`boards boards-${many ? 'many' : 'one'}`}>
         {frame.arenas.map((arena, a) => {
           const label = `Board ${a + 1}, scores ${arena.snakes.map(s => s.score).join(', ')}`;
@@ -77,6 +78,6 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
     </div>
     <div className="board-legend"><span><i className="legend-fly"/>Selected fly</span><span className="pick-hint">{many ? 'Click boards to pick flies for the lesion lab' : 'Click a fly to open the lesion lab'}</span>{human && <span><i className="legend-human"/>You</span>}<span><i className="legend-food"/>Food</span><span className="board-size">{frame.arenas[0]?.size} × {frame.arenas[0]?.size}</span></div>
     {frame.layout === 'versus' && <div className="human-controls" role="group" aria-label="Steer your snake"><span>Arrow keys / WASD</span>{[['left', '←'], ['up', '↑'], ['down', '↓'], ['right', '→']].map(([direction, symbol]) => <button key={direction} disabled={paused || frame.manual} aria-label={`Move ${direction}`} onClick={() => onHuman(direction)}>{symbol}</button>)}</div>}
-    {chosen && <div className="senses" aria-label="Sensory inputs for the selected fly"><span className="senses-label">Senses</span>{Object.entries(chosen.channels).map(([name, level]) => <span key={name} className={level > 0 ? 'on' : ''} title={`${name}: ${Math.round(level * 100)}%`}><i aria-hidden="true"/>{SENSE_LABELS[name] ?? name}<span className="sr-only"> {Math.round(level * 100)}%</span></span>)}{chosen.event && <span className={`on felt felt-${chosen.event}`} title={chosen.event === 'taste' ? 'It just ate: sugar taste neurons are stimulated and the feeding motor neuron MN9 fires' : 'It just died: heat sensors are stimulated and the punishment dopamine neurons PPL1 fire'}><i aria-hidden="true"/>{chosen.event === 'taste' ? 'Tasting sugar' : 'Pain'}</span>}</div>}
+    {chosen && <div className="senses" aria-label="Sensory inputs for the selected fly"><span className="senses-label">Senses</span>{Object.entries(chosen.channels).map(([name, level]) => <span key={name} className={level > 0 ? 'on' : ''} title={`${name}: ${Math.round(level * 100)}%`}><i aria-hidden="true"/>{SENSE_LABELS[name] ?? name}<span className="sr-only"> {Math.round(level * 100)}%</span></span>)}{chosen.event && <span className={`on felt felt-${chosen.event}`} title={chosen.event === 'taste' ? 'Positive event stimulus: sugar taste neurons are stimulated, driving the feeding pathway' : 'Negative event stimulus: heat sensors are stimulated, driving the punishment pathway'}><i aria-hidden="true"/>{chosen.event === 'taste' ? 'Tasting sugar' : 'Pain'}</span>}</div>}
   </div>;
 }
