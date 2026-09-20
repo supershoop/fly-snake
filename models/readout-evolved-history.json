@@ -1,0 +1,300 @@
+{
+  "evaluation": "training and validation response-bank estimates; not continuous-brain scores",
+  "training_move_cap": 600,
+  "validation_move_cap": 1600,
+  "checkpoints": [
+    {
+      "generation": 1,
+      "train_mean_food": 1.75,
+      "train_collisions": 4,
+      "train_seed_start": 40000,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 3.71875
+    },
+    {
+      "generation": 50,
+      "train_mean_food": 27.0,
+      "train_collisions": 3,
+      "train_seed_start": 40000,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 100,
+      "train_mean_food": 32.0,
+      "train_collisions": 5,
+      "train_seed_start": 40008,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 150,
+      "train_mean_food": 33.5,
+      "train_collisions": 4,
+      "train_seed_start": 40016,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 200,
+      "train_mean_food": 35.625,
+      "train_collisions": 3,
+      "train_seed_start": 40024,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 250,
+      "train_mean_food": 37.875,
+      "train_collisions": 3,
+      "train_seed_start": 40032,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 300,
+      "train_mean_food": 39.875,
+      "train_collisions": 0,
+      "train_seed_start": 40040,
+      "best_validation_mean_food": 41.90625
+    },
+    {
+      "generation": 350,
+      "train_mean_food": 41.75,
+      "train_collisions": 0,
+      "train_seed_start": 40048,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 400,
+      "train_mean_food": 40.125,
+      "train_collisions": 0,
+      "train_seed_start": 40056,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 450,
+      "train_mean_food": 39.375,
+      "train_collisions": 0,
+      "train_seed_start": 40064,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 500,
+      "train_mean_food": 42.875,
+      "train_collisions": 0,
+      "train_seed_start": 40072,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 550,
+      "train_mean_food": 41.5,
+      "train_collisions": 0,
+      "train_seed_start": 40080,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 600,
+      "train_mean_food": 43.5,
+      "train_collisions": 0,
+      "train_seed_start": 40088,
+      "best_validation_mean_food": 59.78125
+    },
+    {
+      "generation": 650,
+      "train_mean_food": 40.625,
+      "train_collisions": 0,
+      "train_seed_start": 40096,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 62.46875
+    },
+    {
+      "generation": 700,
+      "train_mean_food": 41.0,
+      "train_collisions": 0,
+      "train_seed_start": 40104,
+      "best_validation_mean_food": 62.46875
+    },
+    {
+      "generation": 750,
+      "train_mean_food": 40.75,
+      "train_collisions": 0,
+      "train_seed_start": 40112,
+      "best_validation_mean_food": 62.46875
+    },
+    {
+      "generation": 800,
+      "train_mean_food": 43.5,
+      "train_collisions": 0,
+      "train_seed_start": 40120,
+      "best_validation_mean_food": 62.46875
+    },
+    {
+      "generation": 850,
+      "train_mean_food": 41.25,
+      "train_collisions": 0,
+      "train_seed_start": 40128,
+      "best_validation_mean_food": 62.46875
+    },
+    {
+      "generation": 900,
+      "train_mean_food": 42.375,
+      "train_collisions": 0,
+      "train_seed_start": 40136,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 950,
+      "train_mean_food": 42.625,
+      "train_collisions": 0,
+      "train_seed_start": 40144,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1000,
+      "train_mean_food": 43.625,
+      "train_collisions": 0,
+      "train_seed_start": 40152,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1050,
+      "train_mean_food": 44.625,
+      "train_collisions": 0,
+      "train_seed_start": 40160,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1100,
+      "train_mean_food": 42.375,
+      "train_collisions": 0,
+      "train_seed_start": 40168,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1150,
+      "train_mean_food": 44.125,
+      "train_collisions": 0,
+      "train_seed_start": 40176,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1200,
+      "train_mean_food": 42.5,
+      "train_collisions": 0,
+      "train_seed_start": 40184,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1250,
+      "train_mean_food": 43.5,
+      "train_collisions": 0,
+      "train_seed_start": 40192,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1300,
+      "train_mean_food": 45.0,
+      "train_collisions": 0,
+      "train_seed_start": 40200,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1350,
+      "train_mean_food": 44.625,
+      "train_collisions": 0,
+      "train_seed_start": 40208,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1400,
+      "train_mean_food": 42.5,
+      "train_collisions": 0,
+      "train_seed_start": 40216,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1450,
+      "train_mean_food": 44.25,
+      "train_collisions": 0,
+      "train_seed_start": 40224,
+      "best_validation_mean_food": 64.875
+    },
+    {
+      "generation": 1500,
+      "train_mean_food": 44.125,
+      "train_collisions": 0,
+      "train_seed_start": 40232,
+      "new_validation_winner": true,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1550,
+      "train_mean_food": 44.0,
+      "train_collisions": 0,
+      "train_seed_start": 40240,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1600,
+      "train_mean_food": 45.5,
+      "train_collisions": 0,
+      "train_seed_start": 40248,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1650,
+      "train_mean_food": 43.625,
+      "train_collisions": 0,
+      "train_seed_start": 40256,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1700,
+      "train_mean_food": 43.875,
+      "train_collisions": 0,
+      "train_seed_start": 40264,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1750,
+      "train_mean_food": 42.75,
+      "train_collisions": 0,
+      "train_seed_start": 40272,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1800,
+      "train_mean_food": 44.5,
+      "train_collisions": 0,
+      "train_seed_start": 40280,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1850,
+      "train_mean_food": 43.375,
+      "train_collisions": 0,
+      "train_seed_start": 40288,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1900,
+      "train_mean_food": 43.25,
+      "train_collisions": 0,
+      "train_seed_start": 40296,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 1950,
+      "train_mean_food": 44.625,
+      "train_collisions": 0,
+      "train_seed_start": 40304,
+      "best_validation_mean_food": 65.625
+    },
+    {
+      "generation": 2000,
+      "train_mean_food": 43.75,
+      "train_collisions": 0,
+      "train_seed_start": 40312,
+      "best_validation_mean_food": 65.625
+    }
+  ]
+}

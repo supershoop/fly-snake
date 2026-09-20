@@ -56,6 +56,11 @@ This fork also includes the Fly Snake simulator and trained descending-neuron
 readout. See [survival training and measured results](docs/TRAINING.md) for the
 training command, comparison with the original model, and remaining limitations.
 
+For reward-driven training over thousands of generations, see
+[evolution training and independent evaluation](docs/EVOLUTION.md). The trainer
+starts random linear readouts, evolves them from game scores, and keeps the
+connectome fixed. The saved experimental winner has not replaced the demo model.
+
 **Retrain existing readout** starts live learning from a copy of the trained
 model; **Start blank** starts over. Positive and negative
 stimuli train the move displayed when clicked, with adjustable strength and
@@ -63,6 +68,34 @@ per-fly or all-fly targeting. The interface confirms accepted feedback and expla
 rejections. Food and collisions also provide automatic rewards. Live changes last
 for the server session; saved models and connectome synapses stay unchanged.
 Resume a paused game before sending feedback.
+
+**Audience training by QR code:** choose **Training**, then scan **Train from your phone** in Live learning.
+The phone page shows the live board with positive/negative stimulus buttons and confirms each tap separately.
+It trains the same shared readout as the host; it cannot change experiment modes. For a local demo, start the
+brain server with `.venv/Scripts/python -m uvicorn flybrain.server:app --host 0.0.0.0 --port 8000`, allow its
+port through the local firewall, and put phones on the same Wi-Fi or hotspot. If multiple network addresses
+appear, select the demo's Wi-Fi address above the QR code. The controller is served by the brain server at
+`http://<server-ip>:8000/feedback/`, so phones do not need access to Vite. For remote audiences, expose the brain
+server through your HTTPS reverse proxy (including WebSocket upgrades) and set `FLY_FEEDBACK_URL` to its
+public `/feedback/` URL. The QR code is generated locally; no external QR service receives the link.
+
+**Eduroam / campus Wi-Fi:** a private LAN address may be unreachable between devices. Use a free HTTPS
+tunnel for the demo so visitors can stay on eduroam or mobile data. The included gateway serves only the
+phone page and forwards its feedback socket to the running experiment:
+
+```sh
+.venv/Scripts/python scripts/audience_gateway.py --brain-ws ws://127.0.0.1:8000/feedback/ws --port 8002
+cloudflared tunnel --url http://127.0.0.1:8002 --protocol http2
+```
+
+Use the brain server's actual port in `--brain-ws` (the separate preview uses `8001`). Install `cloudflared`
+from [Cloudflare's official downloads](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
+Set `VITE_FEEDBACK_URL=https://<assigned-name>.trycloudflare.com/feedback/` when starting Vite or building the
+frontend; this replaces the QR link without restarting the brain or discarding its learner. With PowerShell:
+`$env:VITE_FEEDBACK_URL = 'https://<assigned-name>.trycloudflare.com/feedback/'`, then run the usual frontend command.
+Keep the laptop, gateway and tunnel running. A Quick Tunnel has a temporary URL that changes when restarted;
+update `VITE_FEEDBACK_URL` and refresh the host page after restarting it. For a recurring event, use a named
+tunnel and a stable hostname. The host's mode controls at `/ws` are not exposed by the gateway.
 
 | File | Replace or connect |
 | --- | --- |

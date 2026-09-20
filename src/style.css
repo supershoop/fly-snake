@@ -153,9 +153,9 @@ h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(29px, 2.6v
 .brain-legend i { width: 6px; height: 6px; border-radius: 50%; background: #4a80bd; }
 .brain-legend span:last-child i { background: #84ebe5; }
 .fly-panel .three-viewport { left: 39%; right: 10px; }
-.body-caption { position: absolute; top: 100px; left: 20px; pointer-events: none; display: flex; flex-direction: column; gap: 12px; max-width: 41%; }
-.body-caption em { font-family: Georgia, serif; font-size: 14px; color: #d0d8c8; }
-.body-caption > span { color: var(--faint); line-height: 1.8; font-size: 10px; }
+.body-caption { position: absolute; top: 100px; left: 20px; pointer-events: none; display: flex; flex-direction: column; gap: 4px; max-width: 41%; }
+.body-caption em { font-family: Georgia, serif; font-size: 17px; color: #d0d8c8; }
+.body-caption > span { color: var(--faint); line-height: 1.45; font-size: 8px; }
 .neural-load, .loading { display: flex; align-items: center; gap: 9px; color: var(--muted); padding: 24px; font-size: 12px; }
 .signal-panel { display: grid; grid-template-columns: 1fr .85fr 1.25fr; margin-top: 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; }
 .signal-block { padding: 21px 23px; min-width: 0; }
@@ -234,7 +234,10 @@ meter::-moz-meter-bar { background: #91b880; border-radius: 3px; }
 .scientific-scope { padding: 19px 0 28px; font-size: 11px; color: var(--muted); line-height: 1.8; }
 .scientific-scope summary { cursor: pointer; color: #b6c3a9; width: fit-content; }
 .scientific-scope p { max-width: 110ch; }
-footer { border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; font-size: 10px; color: #91a087; padding-block: 24px; line-height: 1.8; }
+footer { border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; font-size: 10px; color: #91a087; padding-block: 24px; line-height: 1.8; }
+footer > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+.footer-team { color: #c2d2b4; font-size: 11px; }
+.footer-team > span:last-child { color: #aab7a0; font-style: italic; }
 footer a { color: #b6c6a7; }
 .error { font-size: 12px; border: 1px solid #9b6651; padding: 14px; color: #eac5b0; border-radius: 6px; }
 
