@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrainScene } from './components/BrainScene';
-import { FlyScene, type FlyCommand, type FlyDirection } from './components/FlyScene';
+import { FlyScene, type FlyAnimation, type FlyCommand, type FlyDirection } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
 import { LiveTraining } from './components/LiveTraining';
@@ -37,9 +37,19 @@ export function App() {
   const fly = frame?.flies[frame.selected];
   const flyCommand = useMemo<FlyCommand | null>(() => {
     if (!frame || !fly) return null;
-    const directions: FlyDirection[] = ['left', 'up', 'right'];
-    return { direction: directions[fly.action], sequence: frame.time };
-  }, [frame?.time, fly?.action]);
+    const snake = frame.arenas[fly.arena]?.snakes[fly.snake];
+    const headings: FlyDirection[] = ['up', 'right', 'down', 'left'];
+    const animation: FlyAnimation = fly.reward <= -1
+      ? 'pain'
+      : fly.reward >= 1
+        ? 'win'
+        // The server reports a turn relative to the snake. Its rendered heading
+        // is the resulting absolute direction, which is the key a player presses.
+        : fly.action === 1 || !snake
+          ? 'idle'
+          : headings[snake.heading];
+    return { animation, sequence: frame.time };
+  }, [frame?.time, fly?.arena, fly?.snake, fly?.action, fly?.reward, frame?.arenas]);
   const recent = frame?.learning.scores.slice(-20) ?? [];
   const average = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
   useEffect(() => {
@@ -75,7 +85,7 @@ export function App() {
           {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
           <div className="panel-bottom">{frame ? `${frame.activeNeurons.toLocaleString('en-US')} of ${frame.totalNeurons.toLocaleString('en-US')} simulated neurons spiked in the last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`} <a href={asset('data/brain-atlas/NOTICE.md')}>Data notice ↗</a></div>
         </section>
-        <section className="panel fly-panel"><h2>03 / FLY INPUTS <span>Rigged motor display</span></h2><FlyScene command={flyCommand}/><div className="panel-bottom">Live model move → animated key press <span>Drag to rotate</span></div></section>
+        <section className="panel fly-panel"><h2>03 / FLY INPUTS <span>Rigged motor display</span></h2><FlyScene command={flyCommand}/><div className="panel-bottom">Live model move/reward → animation <span>Drag to rotate</span></div></section>
       </div>
       <section className="model-status readout" aria-label="Brain output">
         <div><strong>DESCENDING NEURONS (Hz, left / right)</strong>
