@@ -21,26 +21,32 @@ parser.add_argument("--rate", type=float, nargs="+", default=[0.005, 0.02, 0.08]
 parser.add_argument("--rounds", type=int, default=1500, help="moves per fly")
 parser.add_argument("--seconds-per-round", type=float, default=0.25, help="measured wall time of one batched brain window")
 parser.add_argument("--bank", default="bank-real")
+parser.add_argument("--seeds", type=int, default=1, help="independent repeats (different boards, exploration and brain-response samples)")
 args = parser.parse_args()
 
 bank = torch.as_tensor(np.load(DATA / f"{args.bank}.npz")["counts"])  # [24 states, trials, R]
 state_index = {state: i for i, state in enumerate(ALL_STATES)}
-rng = np.random.default_rng(0)
 
 for flies in args.flies:
     for rate in args.rate:
-        arenas = [Arena(seed=i) for i in range(flies)]
-        learner = OnlineLearner(bank.shape[2], rate=rate)
-        finished, milestones = [], {}
-        for round_index in range(args.rounds):
-            rows = [bank[state_index[a.state()], rng.integers(bank.shape[1])] for a in arenas]
-            actions, _ = learner.act(torch.stack(rows, dim=1))
-            rewards = [a.step({0: int(action)}).get(0, 0.0) for a, action in zip(arenas, actions)]
-            learner.learn(torch.tensor(rewards))
-            finished += [a.snakes[0].last_score for a in arenas if not a.snakes[0].alive]
-            recent = np.mean(finished[-20:]) if len(finished) >= 10 else 0
-            for target in (3, 8, 15):
-                if recent >= target and target not in milestones:
-                    milestones[target] = round_index * args.seconds_per_round
-        summary = "  ".join(f"avg>={t}: {milestones[t]:5.0f}s" if t in milestones else f"avg>={t}:  never" for t in (3, 8, 15))
-        print(f"flies {flies:3d}  rate {rate:<6}  {summary}   final avg of last 20 games: {np.mean(finished[-20:]):5.1f}  ({len(finished)} games)")
+        finals, reached = [], []
+        for seed in range(args.seeds):
+            rng = np.random.default_rng(seed)
+            arenas = [Arena(seed=1000 * seed + i) for i in range(flies)]
+            learner = OnlineLearner(bank.shape[2], rate=rate, seed=seed)
+            finished, milestones = [], {}
+            for round_index in range(args.rounds):
+                rows = [bank[state_index[a.state()], rng.integers(bank.shape[1])] for a in arenas]
+                actions, _ = learner.act(torch.stack(rows, dim=1))
+                rewards = [a.step({0: int(action)}).get(0, 0.0) for a, action in zip(arenas, actions)]
+                learner.learn(torch.tensor(rewards))
+                finished += [a.snakes[0].last_score for a in arenas if not a.snakes[0].alive]
+                recent = np.mean(finished[-20:]) if len(finished) >= 10 else 0
+                for target in (3, 8, 15):
+                    if recent >= target and target not in milestones:
+                        milestones[target] = round_index * args.seconds_per_round
+            finals.append(np.mean(finished[-20:]))
+            reached.append(milestones)
+        summary = "  ".join(f"avg>={t}: {np.mean([m[t] for m in reached if t in m]):5.0f}s in {sum(t in m for m in reached)}/{args.seeds}" if any(t in m for m in reached)
+                            else f"avg>={t}: never" for t in (3, 8, 15))
+        print(f"flies {flies:3d}  rate {rate:<6}  {summary}   final last-20 average: {np.mean(finals):5.1f} +- {np.std(finals):4.1f}  (per seed: {', '.join(f'{f:.1f}' for f in finals)})")
