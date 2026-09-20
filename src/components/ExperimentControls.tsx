@@ -10,15 +10,14 @@ const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[
   { layout: 'versus', label: 'Versus', hint: 'You are the coral snake. Use arrow keys, WASD, or the direction buttons to play.' },
 ];
 
-type Mode = 'trained' | 'normal' | 'scrambled' | 'training' | 'training-scrambled';
-const MODES: { mode: Mode; label: string; hint: string; message: object }[] = [
-  { mode: 'trained', label: 'Trained', hint: 'Real wiring. A linear readout of the descending neurons, fitted offline, picks the move.', message: { wiring: 'real', policy: 'trained' } },
-  { mode: 'normal', label: 'Normal', hint: 'Real wiring, nothing trained. Steering neurons (DNa02, DNa01) pull the snake toward food; the giant fiber (DNp01) vetoes turns into a threat and triggers dodges.', message: { wiring: 'real', policy: 'instinct' } },
-  { mode: 'scrambled', label: 'Scrambled', hint: 'Control. Same neurons and synapse strengths, random targets, nothing trained.', message: { wiring: 'shuffled', policy: 'instinct' } },
-  { mode: 'training', label: 'Training', hint: 'Real wiring. The readout learns while playing, from reward alone.', message: { wiring: 'real', policy: 'learning' } },
-  { mode: 'training-scrambled', label: 'Training · scrambled', hint: 'Control for Training: the same learning rule on the scrambled wiring. Its curve is drawn next to the real one.', message: { wiring: 'shuffled', policy: 'learning' } },
+type Mode = 'trained' | 'normal' | 'scrambled' | 'training';
+const MODES: { mode: Mode; label: string; message: object }[] = [
+  { mode: 'trained', label: 'Trained', message: { wiring: 'real', policy: 'trained' } },
+  { mode: 'normal', label: 'Normal', message: { wiring: 'real', policy: 'instinct' } },
+  { mode: 'scrambled', label: 'Scrambled', message: { wiring: 'shuffled', policy: 'instinct' } },
+  { mode: 'training', label: 'Training', message: { wiring: 'real', policy: 'learning' } },
 ];
-const modeOf = (wiring: Wiring, policy: PolicyName): Mode => wiring === 'shuffled' ? (policy === 'learning' ? 'training-scrambled' : 'scrambled') : policy === 'hardwired' || policy === 'instinct' ? 'normal' : policy === 'learning' ? 'training' : 'trained';
+const modeOf = (wiring: Wiring, policy: PolicyName): Mode => wiring === 'shuffled' ? 'scrambled' : policy === 'hardwired' || policy === 'instinct' ? 'normal' : policy === 'learning' ? 'training' : 'trained';
 
 export function ExperimentControls({ frame, status, paused, pending, send }: {
   frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; send: (message: object) => void;
@@ -73,6 +72,5 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
         <small className="step-rate-actual">{ready && achieved ? `${achieved.toFixed(2)} moves/s actual` : '\u00A0'}</small>
       </div>
     </div>
-    <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : frame ? `${LAYOUTS.find(item => item.layout === layout)?.hint} ${frame.synaptic?.active ? 'Selected synapses were trained offline. The steering readout stays fixed.' : MODES.find(item => item.mode === mode)?.hint}` : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">{frame?.synaptic?.active ? 'Trained synapses · fixed readout' : 'Synaptic weights stay fixed'}</span></div>
   </section>;
 }

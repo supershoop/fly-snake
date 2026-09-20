@@ -29,7 +29,6 @@ export function EventStimuli({ frame, status, paused, send }: {
     setWaiting(current => ({ ...current, [key]: value }));
     send({ eventStimuli: { [key]: value } });
   };
-  const cue = frame?.flies[frame.selected]?.event;
   const message = status !== 'live' ? 'Connect the brain server to choose stimuli.'
     : !settings ? 'Restart the updated brain server to choose event stimuli.'
     : paused || frame?.manual ? 'Resume normal play to change stimuli.'
@@ -54,7 +53,5 @@ export function EventStimuli({ frame, status, paused, send }: {
       </fieldset>)}
     </div>
     <p className="event-stimuli-status" role="status" aria-live="polite">{message}</p>
-    {settings && <p className="event-stimuli-current">Fly {(frame?.selected ?? 0) + 1} this move: {cue === 'taste' ? 'positive · sugar taste' : cue === 'pain' ? 'negative · heat cue' : 'no added event stimulus'}.</p>}
-    <p className="event-stimuli-note">These choices stimulate sugar-taste or heat-sensing neurons in the simulated brain. In Training, the readout still learns from food (+1), death (−1), and distance to food.</p>
   </section>;
 }

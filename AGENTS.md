@@ -178,7 +178,8 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
   10 runs pass an average of 15 (the one-in-five stall seen with the old adjacent-cell senses is gone); scrambled wiring 5.1 +- 0.8,
   0 of 10 pass an average of 8.** An entropy bonus (`OnlineLearner(entropy=0.03)`, `--entropy`) tightens the real-wiring spread to
   +- 1.8 and does not rescue the scrambled brain (5.6); it is off by default. Still one scrambled network and offline only.
-  On the page: train with "Training", then "Training - scrambled" - the learning chart keeps both curves.
+  On the page: "Training" uses real wiring. Scrambled training is available through the WebSocket protocol only;
+  the Brain dropdown offers Trained / Normal / Scrambled / Training. The learning chart still keeps both wiring curves.
   Do NOT demo "readout trained on the real brain, run on the scrambled brain": a decoder fails on any network it was not trained
   on, so that break says nothing about the wiring.
   Carry-over between moves is harmless: real wiring 18.8 with carry-over vs 20.1 with the brain reset every move.
