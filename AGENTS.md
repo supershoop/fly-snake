@@ -89,7 +89,9 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
   neurons fire ~35 spikes/move; three independent scrambles **0.00 / 0.00 / 0.09**, steering neurons <1 spike/move, dead in ~6 moves.
 - Learning from reward alone, offline on the response banks (`live_learning_test.py --bank bank-real|bank-shuffled`, 16 flies,
   1,200 moves each, identical rule): real wiring reaches **17-20** at every learning rate tried (0.001-0.01); scrambled wiring
-  plateaus at **~5** at every rate and never reaches an average of 8. Caveats: one scramble, one seed per setting, offline only.
+  plateaus at **~5** at every rate and never reaches an average of 8. With 5 seeds at rate 0.005 (`--seeds 5`): real wiring
+  19.9, 22.5, 21.2, 20.7 and one stalled run at **5.2**; scrambled 5.3, 5.3, 5.8, 5.8, 6.0. So say "usually learns" (4 of 5), and
+  for the stage use a rehearsed fixed seed or the pre-trained fallback. Caveats: one scrambled network, offline only.
   Do NOT demo "readout trained on the real brain, run on the scrambled brain": a decoder fails on any network it was not trained
   on, so that break says nothing about the wiring.
   Carry-over between moves is harmless: real wiring 18.8 with carry-over vs 20.1 with the brain reset every move.

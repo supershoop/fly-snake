@@ -1,32 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrainScene } from './components/BrainScene';
-import { FlyScene } from './components/FlyScene';
+import { FlyScene, type FlyAnimation, type FlyCommand, type FlyDirection } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
 import { LiveTraining } from './components/LiveTraining';
 import { LesionLab } from './components/LesionLab';
+import { ExperimentControls } from './components/ExperimentControls';
+import { NeuralReadout } from './components/NeuralReadout';
+import { Icon } from './components/Icon';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
-import { useLiveBrain, type Layout, type PolicyName } from './lib/live';
-
-const LAYOUTS: { layout: Layout; label: string; hint: string }[] = [
-  { layout: 'solo', label: 'One fly', hint: 'One simulated brain, one snake.' },
-  { layout: 'swarm', label: '16 flies', hint: 'Sixteen independent brains simulated in one batch, one board each. They share one readout.' },
-  { layout: 'versus', label: 'Human vs fly', hint: 'Arrow keys or WASD steer the red snake. The fly sees your body as a looming threat.' },
-  { layout: 'arena', label: 'Shared arena', hint: 'Eight flies on one board competing for food.' },
-];
-const POLICIES: { policy: PolicyName; label: string; hint: string }[] = [
-  { policy: 'trained', label: 'Trained readout', hint: 'A linear readout of the descending neurons, fitted offline. Synapses are never changed.' },
-  { policy: 'hardwired', label: 'Nothing trained', hint: 'Turn toward whichever side’s steering neurons (DNa02, DNa01) fire more.' },
-  { policy: 'learning', label: 'Learn live', hint: 'The readout starts blank and learns from reward while playing: food +1, death -1, closer +0.1.' },
-];
-const ACTIONS = ['LEFT', 'STRAIGHT', 'RIGHT'];
-const MANUAL = ['food_L', 'food_R', 'danger_L', 'danger_R', 'danger_ahead'];
+import { useLiveBrain } from './lib/live';
 
 export function App() {
   const [atlas, setAtlas] = useState<Atlas | null>(null);
   const [error, setError] = useState('');
   const [paused, setPaused] = useState(false);
-  const [held, setHeld] = useState<string | null>(null);
+  const [learningOpen, setLearningOpen] = useState(false);
   const { frame, status, send, types } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
@@ -35,68 +24,82 @@ export function App() {
   }, []);
   const activity = useMemo(() => frame ? { time: frame.time, values: frame.values } : null, [frame]);
   const fly = frame?.flies[frame.selected];
+  const flyCommand = useMemo<FlyCommand | null>(() => {
+    if (!frame || !fly) return null;
+    const snake = frame.arenas[fly.arena]?.snakes[fly.snake];
+    const headings: FlyDirection[] = ['up', 'right', 'down', 'left'];
+    const animation: FlyAnimation = fly.reward <= -1
+      ? 'pain'
+      : fly.reward >= 1
+        ? 'win'
+        // The server reports a turn relative to the snake. Its rendered heading
+        // is the resulting absolute direction, which is the key a player presses.
+        : fly.action === 1 || !snake
+          ? 'idle'
+          : headings[snake.heading];
+    return { animation, sequence: frame.time };
+  }, [frame?.time, fly?.arena, fly?.snake, fly?.action, fly?.reward, frame?.arenas]);
   const recent = frame?.learning.scores.slice(-20) ?? [];
-  const average = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+  const average = recent.length ? (recent.reduce((a, b) => a + b, 0) / recent.length).toFixed(1) : '—';
   useEffect(() => {
+    if (frame?.policy === 'learning') setLearningOpen(true);
+  }, [frame?.policy]);
+  useEffect(() => {
+    if (frame?.layout !== 'versus' || paused || frame.manual) return;
     const keys: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
     const press = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLElement && (event.target.closest('input, select, textarea, button') || event.target.isContentEditable)) return;
-      const human = keys[event.key]; if (human) { event.preventDefault(); send({ human }); }
+      if (event.altKey || event.ctrlKey || event.metaKey || (event.target instanceof HTMLElement && (event.target.closest('input, select, textarea, summary') || event.target.isContentEditable))) return;
+      const human = keys[event.key] ?? keys[event.key.toLowerCase()];
+      if (human) { event.preventDefault(); send({ human }); }
     };
     window.addEventListener('keydown', press);
     return () => window.removeEventListener('keydown', press);
-  }, [send]);
-  const stimulate = (name: string | null) => { setHeld(name); send({ stimulate: name ? { [name]: 1 } : null }); };
-  const steerMax = Math.max(50, ...Object.values(fly?.steer ?? {}));
+  }, [frame?.layout, frame?.manual, paused, send]);
+  const resume = () => { send({ paused: false, stimulate: null }); setPaused(false); };
+  const togglePause = () => { if (!frame || paused) resume(); else { send({ stimulate: null, paused: true }); setPaused(true); } };
+  const connection = status === 'live' ? (frame ? paused ? 'Paused' : 'Live simulation' : 'Waiting for simulation') : status === 'connecting' ? 'Connecting' : 'Server offline';
+
   return <>
-    <header><h1>FLY SNAKE</h1><span>A simulated fruit-fly connectome plays Snake</span><a href="https://github.com/supershoop/fly-snake#readme">About ↗</a></header>
-    <main>
-      <div className="toolbar">
-        <span className="status">{status === 'live' ? (paused ? 'Paused' : 'Live') : status === 'connecting' ? 'Connecting…' : 'Brain server offline'}
-          {frame && ` · brain time ${frame.time.toFixed(1)} s · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'} · ${frame.learning.games} games · last-20 average ${average.toFixed(1)}`}</span>
-        <div className="controls">
-          {LAYOUTS.map(({ layout, label, hint }) => <button key={layout} title={hint} aria-pressed={frame?.layout === layout} onClick={() => send({ layout })}>{label}</button>)}
-          <span className="gap"/>
-          {POLICIES.map(({ policy, label, hint }) => <button key={policy} title={hint} aria-pressed={frame?.policy === policy} onClick={() => send({ policy })}>{label}</button>)}
-          <button title="Control: same neurons and synapse strengths, random targets" aria-pressed={frame?.wiring === 'shuffled'} onClick={() => send({ wiring: frame?.wiring === 'shuffled' ? 'real' : 'shuffled', policy: 'trained' })}>Scrambled wiring</button>
-          <button onClick={() => { send({ paused: !paused }); setPaused(!paused); }}>{paused ? 'Resume' : 'Pause'}</button>
-        </div>
-      </div>
-      {error && <p className="error" role="alert">{error}</p>}
+    <a className="skip-link" href="#experiment">Skip to experiment</a>
+    <header className="site-header">
+      <a className="brand" href="#" aria-label="Fly Snake home"><span className="brand-mark"><Icon name="snake" size={23}/></span><span>fly<span className="brand-divider">/</span>snake</span></a>
+      <span className="header-caption">A connectome experiment</span>
+      <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="#lab">Experiment lab</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
+    </header>
+    <main id="experiment">
+      <section className="intro" aria-labelledby="page-title">
+        <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">A fly’s wiring. A game of Snake.</h1><p className="intro-description">Follow sensory signals through a simulated fruit-fly connectome, one move at a time.</p></div>
+        <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}` : 'Measured anatomy · simulated activity'}</span></div>
+      </section>
+      <ExperimentControls frame={frame} status={status} paused={paused} onPause={togglePause} send={send}/>
+      {error && <p className="error" role="alert">The brain atlas could not load. {error}</p>}
       <div className="workbench">
-        <section className="panel environment-panel"><h2>01 / ENVIRONMENT <span>Snake · egocentric senses</span></h2><Environment frame={frame} onSelect={select => send({ select })}/>
-          <div className="panel-bottom">Food drives visual neurons; walls, bodies and routes that cut off escape drive threat neurons</div></section>
-        <section className="panel brain-panel"><h2>02 / BRAIN SOMA ATLAS <span>MaleCNS v1.0</span></h2>
-          {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
-          <div className="panel-bottom">{frame ? `${frame.activeNeurons.toLocaleString('en-US')} of ${frame.totalNeurons.toLocaleString('en-US')} simulated neurons spiked in the last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`} <a href={asset('data/brain-atlas/NOTICE.md')}>Data notice ↗</a></div>
+        <section className="panel environment-panel" aria-labelledby="environment-title">
+          <div className="panel-heading"><h2 id="environment-title"><span className="panel-number">01</span>The environment</h2><span className="panel-meta">{frame?.layout === 'versus' ? 'Human vs fly' : frame?.layout === 'swarm' ? '16 independent boards' : frame?.layout === 'arena' ? '8 flies · one board' : 'Snake'}</span></div>
+          <Environment frame={frame} status={status} paused={paused} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
+          <div className="panel-bottom"><span>Game state <span aria-hidden="true">→</span> sensory neurons <span aria-hidden="true">→</span> brain <span aria-hidden="true">→</span> move</span><span className="live-dot">{frame ? `Move ${frame.move ?? '—'}` : 'Awaiting input'}</span></div>
         </section>
-        <section className="panel fly-panel"><h2>03 / BODY <span>Flybody</span></h2><FlyScene/><div className="panel-bottom">Anatomical mesh · no motor simulation <span>Drag to rotate</span></div></section>
+        <section className="panel brain-panel" aria-labelledby="brain-title">
+          <div className="panel-heading"><h2 id="brain-title"><span className="panel-number">02</span>Inside the brain</h2><span className="panel-meta">Soma atlas</span></div>
+          {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : 'Loading measured anatomy…'}</p>}
+          <div className="panel-bottom"><span>{frame ? `${frame.activeNeurons.toLocaleString('en-US')} neurons active · last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`}</span><a href={asset('data/brain-atlas/NOTICE.md')} target="_blank" rel="noreferrer">Data <span aria-hidden="true">↗</span></a></div>
+        </section>
+        <section className="panel fly-panel" aria-labelledby="body-title">
+          <div className="panel-heading"><h2 id="body-title"><span className="panel-number">03</span>The organism</h2><span className="panel-meta">Drosophila</span></div>
+          <FlyScene command={flyCommand}/>
+          <div className="body-caption"><em>Drosophila melanogaster</em><span>Rigged motor display<br/>Live Snake controls</span></div>
+          <div className="panel-bottom"><span>Live input/reward animation</span><span>Drag to rotate</span></div>
+        </section>
       </div>
-      <section className="model-status readout" aria-label="Brain output">
-        <div><strong>DESCENDING NEURONS (Hz, left / right)</strong>
-          {['DNa02', 'DNa01', 'DNp01'].map(kind => <div key={kind} className="steer-row"><span>{kind}{kind === 'DNp01' ? ' · giant fiber' : ' · steering'}</span>
-            <meter min={0} max={steerMax} value={fly?.steer[`${kind}_L`] ?? 0}/><meter min={0} max={steerMax} value={fly?.steer[`${kind}_R`] ?? 0}/>
-            <span>{fly ? `${fly.steer[`${kind}_L`]} / ${fly.steer[`${kind}_R`]}` : '–'}</span></div>)}
-        </div>
-        <div><strong>CHOSEN MOVE</strong>
-          {ACTIONS.map((label, index) => <div key={label} className="steer-row"><span className={fly?.action === index ? 'chosen' : ''}>{label}</span>
-            <meter min={0} max={1} value={fly?.probabilities[index] ?? 0}/><span>{fly ? `${Math.round(fly.probabilities[index] * 100)}%` : '–'}</span></div>)}
-        </div>
-        <div><strong>STIMULATE BY HAND</strong><p>Hold to override the game’s senses and watch the brain and the move respond.</p>
-          <div className="controls">{MANUAL.map(name => <button key={name} aria-pressed={held === name}
-            onPointerDown={() => stimulate(name)} onPointerUp={() => stimulate(null)} onPointerLeave={() => held === name && stimulate(null)}>{name}</button>)}</div>
-        </div>
+      <NeuralReadout frame={frame} status={status} paused={paused} send={send}/>
+      <section className="experiment-lab" id="lab" aria-labelledby="lab-title">
+        <div className="section-heading"><div><p className="eyebrow">Change the conditions</p><h2 id="lab-title">Experiment lab</h2></div><p>Ask what changes when you intervene.</p></div>
+        <details className="lab-disclosure"><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Lesion lab<small>Silence a circuit. Observe what changes.</small></span><span className="disclosure-tag">Neural intervention</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LesionLab frame={frame} status={status} paused={paused} types={types} send={send}/></details>
+        <details className="lab-disclosure" open={learningOpen} onToggle={event => setLearningOpen(event.currentTarget.open)}><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">{frame?.policy === 'learning' ? 'Learning active' : 'Readout only'}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} send={send}/></div></details>
       </section>
-      <LesionLab frame={frame} types={types} send={send}/>
-      <section className="model-status readout learning" aria-label="Live learning">
-        <LiveTraining frame={frame} status={status} paused={paused} send={send}/>
-      </section>
-      <section className="model-status" aria-label="Model provenance">
-        <strong>{frame ? 'PREDICTED OUTPUT · SIMULATION' : 'ANATOMY ONLY'}</strong>
-        <p>{frame ? 'Leaky integrate-and-fire simulation of the MaleCNS v1.0 connectome (165k traced neurons, connections ≥ 5 synapses, sign from predicted neurotransmitter), after Shiu et al. 2024. Simulated spikes, not recordings from a fly.' : 'No neural model connected. No activity is generated by default.'}</p>
-        {frame && <p>Normalization: firing rate over the last 100 ms / 100 Hz, clamped to [0, 1]. Synaptic weights are never changed; only the linear readout is trained.</p>}
-      </section>
-      <details><summary>Scientific scope</summary><p>The atlas contains curated cell-body positions, not neurite morphology. Points keep native proportions. The brain filter selects optic, central and descending classes; nerve-cord neurons are simulated but not drawn.</p><p>Dataset creators: FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research. <a href="https://male-cns.janelia.org/download/">MaleCNS data and publication</a>, CC BY 4.0. <a href={asset('data/brain-atlas/manifest.json')}>Exact source, filters and hashes</a>.</p><p>Built on a modified copy of fly-connectome-template; template code has a custom attribution-required license. Third-party assets retain their own licenses.</p></details>
+      <section className="session-summary" aria-label="Session statistics"><span className="eyebrow">This session</span><span><strong>{frame?.learning.games ?? '—'}</strong> completed games</span><span><strong>{average}</strong> mean food score <small>last {recent.length || 20} {recent.length === 1 ? 'game' : 'games'}</small></span><span><strong>{frame?.totalNeurons.toLocaleString('en-US') ?? '—'}</strong> simulated neurons</span></section>
+      <section className="provenance" aria-label="Model provenance"><span className="provenance-label"><i/>{frame ? 'Simulated, never recorded' : 'Anatomy only'}</span><p>{frame ? 'A leaky integrate-and-fire model runs on the MaleCNS v1.0 connectome. The game supplies engineered sensory inputs; a descending-neuron readout picks the move. Only the readout is trained. Brain synapses stay fixed.' : 'The viewer shows measured cell-body positions and an anatomical surface mesh. No neural activity is generated while the simulation is disconnected.'}</p></section>
+      <details className="scientific-scope"><summary>Scientific scope & data sources</summary><p>The atlas shows curated cell-body positions, not neurite branches or synaptic connections. Points keep their native proportions. Optic, central and descending classes are drawn; nerve-cord neurons are simulated but not shown.</p><p>Game threats include collisions and loss of a route to the moving tail. This is engineered spatial preprocessing, not evidence of biological route planning. Simulated firing rates over 100 ms are divided by 100 Hz and clamped to [0, 1] for display. The LIF model follows Shiu et al. 2024 with MaleCNS scaling.</p><p>Dataset creators: FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research. <a href="https://male-cns.janelia.org/download/">MaleCNS data and publication</a>, CC BY 4.0. <a href={asset('data/brain-atlas/manifest.json')}>Source, filters and hashes</a>. This is a modified fly-connectome-template; third-party assets retain their own licenses.</p></details>
     </main>
     <Attribution/>
   </>;
