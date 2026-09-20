@@ -24,6 +24,7 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
   const play = useRef<(animation: FlyAnimation) => void>(() => {});
   const requestedAnimation = useRef<FlyAnimation | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!command) return;
@@ -141,8 +142,12 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
       if (requestedAnimation.current) trigger(requestedAnimation.current);
       else playIdle();
       resize();
+      setLoading(false);
     }).catch(loadError => {
-      if (!disposed) setError(`Fly animation unavailable: ${String(loadError)}`);
+      if (!disposed) {
+        setError(`Fly animation unavailable: ${String(loadError)}`);
+        setLoading(false);
+      }
     });
 
     const observer = new ResizeObserver(resize);
@@ -165,5 +170,5 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
     };
   }, []);
 
-  return <div ref={host} className="three-viewport" aria-label="Animated fly at a directional keyboard. Each live model move presses its matching key; drag to rotate.">{error && <p role="alert">{error}</p>}</div>;
+  return <div ref={host} className="three-viewport" aria-label="Animated fly at a directional keyboard. Each live model move presses its matching key; drag to rotate.">{loading && <div className="scene-loading" role="status"><i className="spinner"/>Loading rigged fly…</div>}{error && <p role="alert">{error}</p>}</div>;
 }

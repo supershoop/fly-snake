@@ -1,4 +1,4 @@
-import type { Layout, LiveFrame, LiveStatus, PolicyName } from '../lib/live';
+import type { Layout, LiveFrame, LiveStatus, PendingCommand, PolicyName } from '../lib/live';
 import { Icon } from './Icon';
 
 const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[] = [
@@ -8,32 +8,35 @@ const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[
   { layout: 'arena', label: 'Arena', detail: '8', hint: 'Eight flies compete on one board. Choose a fly to inspect its brain and score.' },
 ];
 
-export function ExperimentControls({ frame, status, paused, onPause, send }: {
-  frame: LiveFrame | null; status: LiveStatus; paused: boolean; onPause: () => void; send: (message: object) => void;
+export function ExperimentControls({ frame, status, paused, pending, onPause, send }: {
+  frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; onPause: () => void; send: (message: object) => void;
 }) {
   const ready = status === 'live' && !!frame && !paused;
+  const layout = pending?.layout ?? frame?.layout;
+  const policy = pending?.policy ?? frame?.policy ?? 'trained';
+  const wiring = pending?.wiring ?? frame?.wiring;
   return <section className="experiment-controls" aria-label="Experiment settings">
     <div className="control-row">
       <div className="layout-control">
         <span className="eyebrow" id="layout-label">Environment</span>
         <div className="segmented" role="group" aria-labelledby="layout-label">
-          {LAYOUTS.map(({ layout, label, detail, hint }) => <button key={layout} disabled={!ready} title={hint} aria-pressed={frame?.layout === layout} onClick={() => send({ layout })}>
-            <Icon name={layout}/><span>{label}</span>{detail && <small>{detail}</small>}
+          {LAYOUTS.map(({ layout: option, label, detail, hint }) => <button key={option} disabled={!ready} title={hint} aria-pressed={layout === option} onClick={() => send({ layout: option })}>
+            <Icon name={option}/><span>{label}</span>{detail && <small>{detail}</small>}
           </button>)}
         </div>
       </div>
       <label className="policy-control"><span className="eyebrow">Decision policy</span>
-        <select disabled={!ready} value={frame?.policy ?? 'trained'} onChange={event => send({ policy: event.target.value as PolicyName })}>
+        <select disabled={!ready} value={policy} onChange={event => send({ policy: event.target.value as PolicyName })}>
           <option value="trained">Trained readout</option><option value="hardwired">Nothing trained</option><option value="learning">Learn live</option>
         </select>
       </label>
       <div className="wiring-control"><span className="eyebrow">Connectome</span>
-        <button className="wiring-button" disabled={!ready} aria-pressed={frame?.wiring === 'shuffled'} title="Toggle original wiring and scrambled targets. The selected decision policy stays the same." onClick={() => send({ wiring: frame?.wiring === 'shuffled' ? 'real' : 'shuffled' })}>
-          <span className={`switch ${frame?.wiring === 'shuffled' ? 'switched' : ''}`} aria-hidden="true"/>{frame?.wiring === 'shuffled' ? 'Scrambled wiring' : 'Real wiring'}
+        <button className="wiring-button" disabled={!ready} aria-pressed={wiring === 'shuffled'} title="Toggle original wiring and scrambled targets. The selected decision policy stays the same." onClick={() => send({ wiring: wiring === 'shuffled' ? 'real' : 'shuffled' })}>
+          <span className={`switch ${wiring === 'shuffled' ? 'switched' : ''}`} aria-hidden="true"/>{wiring === 'shuffled' ? 'Scrambled wiring' : 'Real wiring'}
         </button>
       </div>
       <button className="pause-button" disabled={status !== 'live'} onClick={onPause}><Icon name={paused || !frame ? 'play' : 'pause'}/>{paused || !frame ? 'Resume' : 'Pause'}</button>
     </div>
-    <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : frame ? LAYOUTS.find(item => item.layout === frame.layout)?.hint : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">Synaptic weights stay fixed</span></div>
+    <div className="control-caption"><span>{pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : paused ? 'The simulation is paused. Resume to change experiment settings.' : frame ? LAYOUTS.find(item => item.layout === layout)?.hint : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">Synaptic weights stay fixed</span></div>
   </section>;
 }

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import type { LiveFrame, LiveStatus, NeuronType } from '../lib/live';
+import { useEffect, useMemo, useState } from 'react';
+import type { LiveFrame, LiveStatus, NeuronType, PendingCommand } from '../lib/live';
 
 /** Relay cells found by path search in the connectome (scripts/lesion_scores.py), not chosen by hand-tuning. */
 const PRESETS: { label: string; hint: string; types: string[] }[] = [
@@ -12,18 +12,27 @@ const PRESETS: { label: string; hint: string; types: string[] }[] = [
   { label: 'Looming detectors · LC4', hint: 'The cells we stimulate for side threats.', types: ['LC4'] },
 ];
 
-export function LesionLab({ frame, status, paused = false, types, send }: { frame: LiveFrame | null; status: LiveStatus; paused?: boolean; types: NeuronType[]; send: (message: object) => void }) {
+export function LesionLab({ frame, status, paused = false, pending, types, send }: { frame: LiveFrame | null; status: LiveStatus; paused?: boolean; pending: PendingCommand | null; types: NeuronType[]; send: (message: object) => void }) {
   const [query, setQuery] = useState('');
   const [everyFly, setEveryFly] = useState(true);
+  const [optimisticActive, setOptimisticActive] = useState<string[] | null>(null);
   const connected = status === 'live' && frame !== null;
   const enabled = connected && !paused;
-  const active = frame?.flies[frame.selected]?.lesion ?? [];
+  const serverActive = frame?.flies[frame.selected]?.lesion ?? [];
+  const serverActiveKey = serverActive.join('\u0000');
+  useEffect(() => {
+    if (optimisticActive && optimisticActive.length === serverActive.length && optimisticActive.every(pattern => serverActive.includes(pattern))) setOptimisticActive(null);
+  }, [optimisticActive, serverActive, serverActiveKey]);
+  const active = optimisticActive ?? serverActive;
   const matches = useMemo(() => {
     const wanted = query.trim().toLowerCase();
     return wanted ? types.filter(([kind]) => kind.toLowerCase().includes(wanted)) : [];
   }, [query, types]);
   const apply = (next: string[]) => {
-    if (enabled) send({ lesion: { fly: everyFly ? null : frame.selected, types: next } });
+    if (enabled && frame) {
+      setOptimisticActive(next);
+      send({ lesion: { fly: everyFly ? null : frame.selected, types: next } });
+    }
   };
   const toggle = (patterns: string[]) => apply(patterns.every(p => active.includes(p)) ? active.filter(p => !patterns.includes(p)) : [...new Set([...active, ...patterns])]);
   const patterns = active.flatMap(pattern => {
@@ -39,7 +48,8 @@ export function LesionLab({ frame, status, paused = false, types, send }: { fram
 
   return <section className="model-status lesion-lab" aria-label="Lesion lab">
     <div><strong>LESION LAB · SILENCE NEURONS</strong>
-      <p>Silenced neurons cannot spike. {!connected ? 'Connect the brain server to run a lesion experiment.' : paused ? 'Resume the simulation to change lesions.' : active.length ? `${types.length ? silenced.toLocaleString('en-US') + ' neurons' : active.length + ' type patterns'} silenced in fly ${frame.selected + 1}.` : 'The selected brain is intact.'}</p>
+      <p>Silenced neurons cannot spike. {!connected ? 'Connect the brain server to run a lesion experiment.' : paused ? 'Resume the simulation to change lesions.' : active.length ? `${types.length ? silenced.toLocaleString('en-US') + ' neurons' : active.length + ' type patterns'} silenced in fly ${frame!.selected + 1}.` : 'The selected brain is intact.'}</p>
+      {optimisticActive && pending?.message === 'Applying the lesion…' && <p className="pending-text" role="status"><i className="spinner"/>Applying lesion to the simulation…</p>}
       <div className="controls">{PRESETS.map(preset => <button key={preset.label} disabled={!enabled} title={preset.hint} aria-pressed={preset.types.every(p => active.includes(p))} onClick={() => toggle(preset.types)}>{preset.label}</button>)}
         <button disabled={!canHeal} onClick={() => apply([])}>{everyFly ? 'Heal all flies' : 'Heal selected fly'}</button></div>
     </div>

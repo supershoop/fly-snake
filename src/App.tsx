@@ -16,7 +16,7 @@ export function App() {
   const [error, setError] = useState('');
   const [paused, setPaused] = useState(false);
   const [learningOpen, setLearningOpen] = useState(false);
-  const { frame, status, send, types } = useLiveBrain();
+  const { frame, status, send, types, pending } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
     void loadAtlas(abort.signal).then(setAtlas).catch(e => { if (!abort.signal.aborted) setError(String(e)); });
@@ -41,6 +41,7 @@ export function App() {
   }, [frame?.time, fly?.arena, fly?.snake, fly?.action, fly?.reward, frame?.arenas]);
   const recent = frame?.learning.scores.slice(-20) ?? [];
   const average = recent.length ? (recent.reduce((a, b) => a + b, 0) / recent.length).toFixed(1) : '—';
+  const displayLayout = pending?.layout ?? frame?.layout;
   useEffect(() => {
     if (frame?.policy === 'learning') setLearningOpen(true);
   }, [frame?.policy]);
@@ -71,17 +72,18 @@ export function App() {
         <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">A fly’s wiring. A game of Snake.</h1><p className="intro-description">Follow sensory signals through a simulated fruit-fly connectome, one move at a time.</p></div>
         <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}` : 'Measured anatomy · simulated activity'}</span></div>
       </section>
-      <ExperimentControls frame={frame} status={status} paused={paused} onPause={togglePause} send={send}/>
+      <ExperimentControls frame={frame} status={status} paused={paused} pending={pending} onPause={togglePause} send={send}/>
+      {pending && <div className="command-toast" role="status" aria-live="polite"><i className="spinner"/><span>{pending.message}<small>Waiting for the next brain frame…</small></span></div>}
       {error && <p className="error" role="alert">The brain atlas could not load. {error}</p>}
       <div className="workbench">
         <section className="panel environment-panel" aria-labelledby="environment-title">
-          <div className="panel-heading"><h2 id="environment-title"><span className="panel-number">01</span>The environment</h2><span className="panel-meta">{frame?.layout === 'versus' ? 'Human vs fly' : frame?.layout === 'swarm' ? '16 independent boards' : frame?.layout === 'arena' ? '8 flies · one board' : 'Snake'}</span></div>
-          <Environment frame={frame} status={status} paused={paused} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
+          <div className="panel-heading"><h2 id="environment-title"><span className="panel-number">01</span>The environment</h2><span className="panel-meta">{displayLayout === 'versus' ? 'Human vs fly' : displayLayout === 'swarm' ? '16 independent boards' : displayLayout === 'arena' ? '8 flies · one board' : 'Snake'}</span></div>
+          <Environment frame={frame} status={status} paused={paused} pending={pending} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
           <div className="panel-bottom"><span>Game state <span aria-hidden="true">→</span> sensory neurons <span aria-hidden="true">→</span> brain <span aria-hidden="true">→</span> move</span><span className="live-dot">{frame ? `Move ${frame.move ?? '—'}` : 'Awaiting input'}</span></div>
         </section>
         <section className="panel brain-panel" aria-labelledby="brain-title">
           <div className="panel-heading"><h2 id="brain-title"><span className="panel-number">02</span>Inside the brain</h2><span className="panel-meta">Soma atlas</span></div>
-          {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : 'Loading measured anatomy…'}</p>}
+          {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : <><i className="spinner"/>Loading measured anatomy…</>}</p>}
           <div className="panel-bottom"><span>{frame ? `${frame.activeNeurons.toLocaleString('en-US')} neurons active · last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`}</span><a href={asset('data/brain-atlas/NOTICE.md')} target="_blank" rel="noreferrer">Data <span aria-hidden="true">↗</span></a></div>
         </section>
         <section className="panel fly-panel" aria-labelledby="body-title">
@@ -91,11 +93,11 @@ export function App() {
           <div className="panel-bottom"><span>Live input/reward animation</span><span>Drag to rotate</span></div>
         </section>
       </div>
-      <NeuralReadout frame={frame} status={status} paused={paused} send={send}/>
+      <NeuralReadout frame={frame} status={status} paused={paused} pending={pending} send={send}/>
       <section className="experiment-lab" id="lab" aria-labelledby="lab-title">
         <div className="section-heading"><div><p className="eyebrow">Change the conditions</p><h2 id="lab-title">Experiment lab</h2></div><p>Ask what changes when you intervene.</p></div>
-        <details className="lab-disclosure"><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Lesion lab<small>Silence a circuit. Observe what changes.</small></span><span className="disclosure-tag">Neural intervention</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LesionLab frame={frame} status={status} paused={paused} types={types} send={send}/></details>
-        <details className="lab-disclosure" open={learningOpen} onToggle={event => setLearningOpen(event.currentTarget.open)}><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">{frame?.policy === 'learning' ? 'Learning active' : 'Readout only'}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} send={send}/></div></details>
+        <details className="lab-disclosure"><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Lesion lab<small>Silence a circuit. Observe what changes.</small></span><span className="disclosure-tag">Neural intervention</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LesionLab frame={frame} status={status} paused={paused} pending={pending} types={types} send={send}/></details>
+        <details className="lab-disclosure" open={learningOpen} onToggle={event => setLearningOpen(event.currentTarget.open)}><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">{pending?.policy === 'learning' || frame?.policy === 'learning' ? 'Learning active' : 'Readout only'}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} pending={pending} send={send}/></div></details>
       </section>
       <section className="session-summary" aria-label="Session statistics"><span className="eyebrow">This session</span><span><strong>{frame?.learning.games ?? '—'}</strong> completed games</span><span><strong>{average}</strong> mean food score <small>last {recent.length || 20} {recent.length === 1 ? 'game' : 'games'}</small></span><span><strong>{frame?.totalNeurons.toLocaleString('en-US') ?? '—'}</strong> simulated neurons</span></section>
       <section className="provenance" aria-label="Model provenance"><span className="provenance-label"><i/>{frame ? 'Simulated, never recorded' : 'Anatomy only'}</span><p>{frame ? 'A leaky integrate-and-fire model runs on the MaleCNS v1.0 connectome. The game supplies engineered sensory inputs; a descending-neuron readout picks the move. Only the readout is trained. Brain synapses stay fixed.' : 'The viewer shows measured cell-body positions and an anatomical surface mesh. No neural activity is generated while the simulation is disconnected.'}</p></section>
