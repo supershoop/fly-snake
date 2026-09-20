@@ -154,6 +154,14 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
 - Page: modes are Trained / Normal / Scrambled / Training (Scrambled = scrambled wiring + the same instinct rule, the fair control).
   Click boards to pick flies (multi-select); the lesion lab appears for the picked flies and their silenced cells are drawn as orange
   rings in the brain view (`silencedByFly` in the frame). Live learning shows only in Training. No pause, no manual stimulation.
+- **Lesion table, instinct rule, current senses** (`scripts/lesion_scores.py --games 16`, live brain, food +- s.e.m. / moves survived).
+  Nothing trained: intact 5.9 +- 1.0 / 63 · AOTU relays (12 cells) **0.8 +- 0.2** / 132 · DNa02 (2 cells) **1.1 +- 0.3** / 170 ·
+  DNa02 + DNa01 0.4 / 160 · giant fiber DNp01 (2 cells) 2.2 +- 0.1 / **25** · PVLP relays 5.7 / 59 · AOTU025 alone 6.9 / 63 ·
+  controls: 12 random neurons 5.5 / 61, 2,000 random neurons 6.4 / 68. Double dissociation: no steering -> no food but long survival
+  (it wanders and still dodges); no giant fiber -> still seeks food, dies 2.5x sooner. Trained readout (Hang's current `readout-real`):
+  intact 24.9 +- 1.8, controls 25.8 and 23.8, **AOTU relays 15.0 +- 2.0** - so the trained readout does lean on the real pursuit
+  pathway; every other lesion is within noise (DNa02 24.9, DNp01 25.8, PVLP 20.3 +- 2.5, AOTU025 alone 25.1 - the old 11.0 outlier was noise).
+  The older table below used the previous untrained rule and previous senses.
 - Lesion table (`lesion_scores.py`, 8 games each, live sim). **Nothing-trained policy:** intact 2.00 · 12 AOTU relay cells
   silenced 0.38 · 2 DNa02 cells silenced 0.00 (dies in 6 moves) · 12 random neurons 2.00 · 2,000 random neurons 2.25.
   **Trained readout:** 19.75 intact vs 16-20 for every lesion including the random controls (12 random: 16.1), i.e. no lesion
