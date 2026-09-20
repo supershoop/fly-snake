@@ -29,7 +29,7 @@ SHUFFLE_SEED = 0
 class Brain:
     def __init__(self, connectome: Connectome, batch: int = 1, dt: float = 0.5, shuffled: bool = False,
                  weight_scale: float = MALECNS_WEIGHT_SCALE, device: str | None = None, seed: int = 0,
-                 shuffle_seed: int = SHUFFLE_SEED):
+                 shuffle_seed: int = SHUFFLE_SEED, cpu_sparse: bool = True):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.n, self.batch, self.dt = connectome.n, batch, dt
         self.rng = torch.Generator(device=self.device).manual_seed(seed)
@@ -40,6 +40,8 @@ class Brain:
         weights = torch.sparse_coo_tensor(np.stack([post, connectome.pre]), connectome.weight * (W_SYN * weight_scale),
                                           (self.n, self.n)).coalesce()
         self.weights = weights.to_sparse_csr().to(self.device)
+        self.cpu_sparse = self.device.type == "cpu" and cpu_sparse
+        self.cpu_synapses = None
         self.delay_steps = max(1, round(T_DELAY / dt))
         self.refractory_steps = max(1, round(T_REFRACTORY / dt))
         self.silenced = None
@@ -75,6 +77,12 @@ class Brain:
         returns spike counts, float [N, B], or [R, B] if record_index is given
         """
         steps = round(ms / self.dt)
+        # Single-brain CPU play benefits from skipping inactive columns. Keep
+        # the original batched/GPU kernel for training and swarm layouts.
+        if self.cpu_sparse and self.batch == 1 and self.cpu_synapses is None:
+            from .cpu_synapses import CPUSynapses
+            self.cpu_synapses = CPUSynapses(self.weights)
+        propagate = self.cpu_synapses if self.batch == 1 else None
         counts = torch.zeros((self.n if record_index is None else len(record_index), self.batch), device=self.device)
         if stim_index is not None:
             stim_probability = stim_level.to(self.device) * (STIM_RATE_HZ * self.dt / 1000.0)
@@ -92,7 +100,8 @@ class Brain:
             self.v[spikes] = V_RESET
             self.refractory = torch.where(spikes, self.refractory_steps, (self.refractory - 1).clamp(min=0)).to(torch.int16)
             spikes = spikes.float()
-            self.pending[self.cursor] = torch.sparse.mm(self.weights, spikes)
+            self.pending[self.cursor] = (propagate(spikes) if propagate is not None
+                                         else torch.sparse.mm(self.weights, spikes))
             self.cursor = (self.cursor + 1) % self.delay_steps
             counts += spikes if record_index is None else spikes[record_index]
         return counts

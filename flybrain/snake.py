@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .channels import CHANNEL_NAMES
+from .navigation import dangers
 
 LEFT, STRAIGHT, RIGHT = 0, 1, 2
 HEADINGS = [(0, -1), (1, 0), (0, 1), (-1, 0)]  # up, right, down, left as (dx, dy); y grows downward
@@ -23,6 +24,7 @@ class Body:
     games: int = 0
     last_score: int = 0
     wanted_heading: int | None = None  # human input, absolute
+    end_reason: str | None = None  # collision | starvation | filled; evaluation only
 
 
 class Arena:
@@ -43,7 +45,8 @@ class Arena:
         for index in range(len(self.snakes)):
             self._spawn(index)
         while len(self.foods) < self.food_count:
-            self._place_food()
+            if not self._place_food():
+                break
 
     def occupied(self) -> set:
         return {cell for snake in self.snakes if snake.alive for cell in snake.cells}
@@ -56,12 +59,14 @@ class Arena:
             if not taken.intersection(cells + [(x + 1, y), (x + 2, y)]):
                 break
         snake.cells, snake.heading, snake.alive, snake.score, snake.idle, snake.wanted_heading = cells, 1, True, 0, 0, None
+        snake.end_reason = None
 
     def _place_food(self):
         taken = self.occupied() | set(self.foods)
         free = [(x, y) for x in range(self.size) for y in range(self.size) if (x, y) not in taken]
         if free:
             self.foods.append(free[self.rng.integers(len(free))])
+        return bool(free)
 
     # --- one snake's view ------------------------------------------------------------------------------------------
     def _cell(self, snake: Body, turn: int):
@@ -77,7 +82,7 @@ class Arena:
 
     def _nearest_food(self, snake: Body):
         head = snake.cells[0]
-        return min(self.foods, key=lambda f: abs(f[0] - head[0]) + abs(f[1] - head[1]))
+        return min(self.foods, key=lambda f: abs(f[0] - head[0]) + abs(f[1] - head[1]), default=head)
 
     def _food_distance(self, snake: Body) -> int:
         food, head = self._nearest_food(snake), snake.cells[0]
@@ -96,12 +101,13 @@ class Arena:
             return STRAIGHT
         return RIGHT if rightward > 0 else LEFT
 
-    def state(self, index: int = 0):
-        return self.food_side(index), self.blocked(index, LEFT), self.blocked(index, STRAIGHT), self.blocked(index, RIGHT)
+    def state(self, index: int = 0, *, lookahead: bool = True):
+        threats = dangers(self, index) if lookahead else tuple(self.blocked(index, action) for action in range(3))
+        return self.food_side(index), *threats
 
-    def encode(self, index: int = 0) -> np.ndarray:
+    def encode(self, index: int = 0, *, lookahead: bool = True) -> np.ndarray:
         """Channel drive in 0..1, ordered like CHANNEL_NAMES."""
-        return encode_state(self.state(index))
+        return encode_state(self.state(index, lookahead=lookahead))
 
     # --- dynamics ------------------------------------------------------------------------------------------------
     def steer_human(self, index: int, heading_name: str):
@@ -114,6 +120,9 @@ class Arena:
             if not snake.alive:
                 if self.respawn:
                     self._spawn(index)
+                    while len(self.foods) < self.food_count:
+                        if not self._place_food():
+                            break
                 continue
             if snake.kind == "human":
                 turn = {0: STRAIGHT, 1: RIGHT, 3: LEFT}.get(((snake.wanted_heading if snake.wanted_heading is not None else snake.heading) - snake.heading) % 4, STRAIGHT)
@@ -131,16 +140,19 @@ class Arena:
                 self._place_food()
                 snake.score, snake.idle = snake.score + 1, 0
                 rewards[index] = REWARD_EAT
+                if not self.foods:  # A full board is a completed game, not a crash in the next observation.
+                    self._kill(snake, "filled")
             else:
                 snake.cells.pop()
                 snake.idle += 1
                 rewards[index] = REWARD_CLOSER if self._food_distance(snake) < before else -REWARD_CLOSER
                 if snake.idle >= self.max_idle:
-                    rewards[index] = self._kill(snake)
+                    rewards[index] = self._kill(snake, "starvation")
         return rewards
 
-    def _kill(self, snake: Body) -> float:
+    def _kill(self, snake: Body, reason: str = "collision") -> float:
         snake.alive, snake.games, snake.last_score = False, snake.games + 1, snake.score
+        snake.end_reason = reason
         return REWARD_DIE
 
     def render_state(self) -> dict:

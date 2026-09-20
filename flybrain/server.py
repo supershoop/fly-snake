@@ -19,6 +19,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from .brain import Brain
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
+from .feedback import HumanFeedback
 from .readout import HardwiredPolicy, OnlineLearner, Policy
 from .snake import Arena
 
@@ -54,16 +55,19 @@ class Experiment:
         self.wiring, self.policy_name = "real", "trained"
         self.paused, self.override, self.selected, self.clock = False, None, 0, 0.0
         self.sensor, self.sensor_seen = {}, 0.0
-        self.pending_feedback: list[tuple[int | None, float]] = []
+        self.feedback, self.move = HumanFeedback(), 0
         self.history: list[float] = []  # score of every finished fly game, oldest first
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
         self.set_layout("solo")
 
     # --- configuration ---------------------------------------------------------------------------------------------
     def set_layout(self, name: str):
+        self.feedback.clear()
         self.layout = name
         self.arenas = [Arena(size, kinds, foods, seed=i) for i, (size, kinds, foods) in enumerate(LAYOUTS[name])]
         self.flies = [(a, s) for a, arena in enumerate(self.arenas) for s, snake in enumerate(arena.snakes) if snake.kind == "fly"]
+        if self.device.type == "cpu":
+            torch.set_num_threads(min(os.cpu_count() or 1, 4 if len(self.flies) == 1 else 8))
         self.lesions: list[list[str]] = [[] for _ in self.flies]
         self.selected, self.history = 0, []
         for brain in self.brains.values():
@@ -105,11 +109,23 @@ class Experiment:
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
         if message.get("wiring") in ("real", "shuffled"):
+            if self.wiring != message["wiring"]:
+                self.feedback.clear()
             self.wiring = message["wiring"]
         if message.get("policy") in ("trained", "hardwired", "learning"):
+            if self.policy_name != message["policy"]:
+                self.feedback.clear()
             self.policy_name = message["policy"]
-        if message.get("learning") == "reset":
-            self.policies.pop(("learning", self.wiring), None)
+        if message.get("learning") in ("reset", "pretrained"):
+            if message["learning"] == "pretrained":
+                trained = self.policies.get(("trained", self.wiring))
+                if trained is None:
+                    trained = Policy.load(f"readout-{self.wiring}", self.device)
+                self.policies[("learning", self.wiring)] = OnlineLearner.from_policy(trained)
+            else:
+                self.policies.pop(("learning", self.wiring), None)
+            self.policy_name = "learning"
+            self.feedback = HumanFeedback()
             self.history = []
         if "lesion" in message:  # {"fly": index or null for all, "types": [regex on annotation type, ...]}
             targets = range(len(self.flies)) if message["lesion"].get("fly") is None else [int(message["lesion"]["fly"])]
@@ -117,10 +133,12 @@ class Experiment:
                 self.lesions[fly] = list(message["lesion"].get("types", []))
             self.apply_lesions()
         if "feedback" in message:  # human reward (+) / punishment (-) for the move just made
-            self.pending_feedback.append((message.get("fly"), float(message["feedback"])))
+            learner = self.policy() if self.policy_name == "learning" and self.override is None else None
+            self.feedback.apply(message, learner)
         if "sensor" in message:  # external hardware: extra drive added on top of the game's senses, e.g. {"danger_ahead": 0.8}
             self.sensor, self.sensor_seen = dict(message["sensor"]), time.monotonic()
         if "stimulate" in message:  # manual override of all senses; the game holds still while it is set
+            self.feedback.clear()
             self.override = message["stimulate"]
         if "human" in message:
             for arena in self.arenas:
@@ -150,18 +168,19 @@ class Experiment:
         actions = actions.tolist()
 
         rewards = np.zeros(len(self.flies), dtype=np.float32)
+        eligible = [False] * len(self.flies)
         if self.override is None:
             for a, arena in enumerate(self.arenas):
                 outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a})
                 for f, (fa, s) in enumerate(self.flies):
                     if fa == a:
                         rewards[f] = outcome.get(s, 0.0)
+                        eligible[f] = s in outcome
                         if s in outcome and not arena.snakes[s].alive:
                             self.history.append(arena.snakes[s].last_score)
-        for fly, value in self.pending_feedback:
-            rewards[slice(None) if fly is None else int(fly)] += value
-        self.pending_feedback = []
-        if isinstance(policy, OnlineLearner):
+        self.move += 1
+        if isinstance(policy, OnlineLearner) and self.override is None:
+            self.feedback.remember(self.move, policy, eligible)
             policy.learn(torch.as_tensor(rewards))
 
         self.clock += WINDOW_MS / 1000
@@ -171,15 +190,17 @@ class Experiment:
         firing = np.flatnonzero(shown)
         steer = {name: (dn_counts[index].sum(dim=0) / max(1, len(index)) / seconds).tolist() for name, index in self.steer.items()}
         return {
-            "time": round(self.clock, 3), "layout": self.layout, "wiring": self.wiring, "policy": self.policy_name,
+            "time": round(self.clock, 3), "move": self.move, "layout": self.layout, "wiring": self.wiring, "policy": self.policy_name,
             "manual": self.override is not None, "sensor": self.sensor if time.monotonic() - self.sensor_seen < SENSOR_HOLD_S else {},
             "arenas": [arena.render_state() for arena in self.arenas],
             "flies": [{"arena": a, "snake": s, "channels": dict(zip(CHANNEL_NAMES, levels[:, f].tolist())), "action": actions[f],
                        "probabilities": [round(p, 3) for p in probabilities[f].tolist()], "reward": float(rewards[f]),
+                       "feedbackEligible": eligible[f] and isinstance(policy, OnlineLearner),
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
             "selected": self.selected, "lesionPresets": LESION_PRESETS,
-            "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:]},
+            "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:],
+                         "feedback": self.feedback.state()},
             "activeNeurons": int((rates > 0).sum()), "totalNeurons": self.connectome.n,
             "values": [[int(i), round(float(v), 3)] for i, v in zip(self.visible_ids[firing], shown[firing])],
         }
