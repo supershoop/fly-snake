@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--games", type=int, default=8, help="games per lesion")
 parser.add_argument("--max-moves", type=int, default=300)
 parser.add_argument("--window", type=float, default=100)
+parser.add_argument("--seed-offset", type=int, default=0, help="first board seed, to add games to an earlier run without repeating boards")
 args = parser.parse_args()
 
 LESIONS = {  # label -> regexes on annotation `type` (full match); "random:N" = N random central-brain neurons
@@ -65,7 +66,7 @@ for row, (label, patterns) in enumerate(LESIONS.items()):
 policies = {"trained readout": Policy.load("readout-real", device), "nothing trained": HardwiredPolicy(channels.steer_sign)}
 results = {}
 for policy_name, policy in policies.items():
-    games = [Snake(seed=i % args.games) for i in range(batch)]  # the same 8 boards for every lesion
+    games = [Snake(seed=args.seed_offset + i % args.games) for i in range(batch)]  # the same boards for every lesion
     moves = np.zeros(batch)
     brain = Brain(connectome, batch=batch, seed=1)
     brain.set_lesion(torch.as_tensor(mask))

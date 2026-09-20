@@ -41,6 +41,35 @@ class HardwiredPolicy:
         return action, torch.nn.functional.one_hot(action, 3).float()
 
 
+class InstinctPolicy:
+    """Nothing trained. Pursuit steering with two escape behaviours, read from named cells only:
+    steer toward the side whose steering neurons (DNa02 + DNa01) fire more, except that the giant fiber (DNp01) overrides it -
+    veto:  never turn toward the side whose giant fiber fires much harder;
+    dodge: when both giant fibers fire (threat ahead) and nothing pulls sideways, turn away from the louder one.
+    The three thresholds (Hz) are hand-set, not fitted. See scripts/instinct_analysis.py.
+    """
+
+    def __init__(self, groups: dict[str, torch.Tensor], window_ms: float, steer: float = 20.0, veto: float = 100.0, alarm: float = 150.0):
+        self.groups, self.seconds = groups, window_ms / 1000  # groups: "DNa02_L" -> row indices into dn_counts
+        self.steer, self.veto, self.alarm = steer, veto, alarm
+
+    def rate(self, dn_counts: torch.Tensor, name: str) -> torch.Tensor:
+        index = self.groups[name]
+        return dn_counts[index].sum(dim=0) / max(1, len(index)) / self.seconds  # Hz, [B]
+
+    def act(self, dn_counts: torch.Tensor):
+        rate = lambda name: self.rate(dn_counts, name)
+        drive = (rate("DNa02_L") + rate("DNa01_L")) - (rate("DNa02_R") + rate("DNa01_R"))  # positive = pulled left
+        fiber_left, fiber_right = rate("DNp01_L"), rate("DNp01_R")
+        threat = fiber_left - fiber_right                                                   # positive = more threat on the left
+        action = torch.where(drive > self.steer, 0, torch.where(drive < -self.steer, 2, 1))
+        vetoed = ((action == 0) & (threat > self.veto)) | ((action == 2) & (threat < -self.veto))
+        action = torch.where(vetoed, 1, action)
+        dodge = (action == 1) & (torch.minimum(fiber_left, fiber_right) > self.alarm)
+        action = torch.where(dodge, torch.where(threat > 0, 2, 0), action)
+        return action, torch.nn.functional.one_hot(action, 3).float()
+
+
 class OnlineLearner(Policy):
     """Learns while playing from reward (policy-gradient on the same linear readout).
 

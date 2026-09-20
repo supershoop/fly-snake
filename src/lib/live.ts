@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type Layout = 'solo' | 'swarm' | 'versus' | 'arena';
-export type PolicyName = 'trained' | 'hardwired' | 'learning';
+export type PolicyName = 'trained' | 'hardwired' | 'instinct' | 'learning';
 export type Wiring = 'real' | 'shuffled';
 export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number };
 export type ArenaState = { size: number; foods: [number, number][]; snakes: SnakeState[] };
@@ -21,6 +21,10 @@ export type LiveFrame = {
   arenas: ArenaState[]; flies: FlyState[]; selected: number; lesionPresets: string[];
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
+  /** bodyIds of the shown fly's silenced cells that the atlas draws, and how many cells are silenced in total. */
+  silenced?: number[]; silencedTotal?: number;
+  /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
+  silencedByFly?: Record<string, number[]>;
 };
 /** [type, number of cells, superclass] for every annotated neuron type; requested once with {hello: true}. */
 export type NeuronType = [string, number, string];

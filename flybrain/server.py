@@ -20,7 +20,7 @@ from .brain import Brain
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
-from .readout import HardwiredPolicy, OnlineLearner, Policy
+from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
 from .snake import Arena
 
 warnings.filterwarnings("ignore")
@@ -69,6 +69,7 @@ class Experiment:
         if self.device.type == "cpu":
             torch.set_num_threads(min(os.cpu_count() or 1, 4 if len(self.flies) == 1 else 8))
         self.lesions: list[list[str]] = [[] for _ in self.flies]
+        self.silenced_ids, self.silenced_total = [[] for _ in self.flies], [0] * len(self.flies)
         self.selected, self.history = 0, []
         for brain in self.brains.values():
             brain.resize(len(self.flies))
@@ -82,7 +83,9 @@ class Experiment:
     def policy(self):
         key = (self.policy_name, self.wiring)
         if key not in self.policies:
-            if self.policy_name == "hardwired":
+            if self.policy_name == "instinct":
+                self.policies[key] = InstinctPolicy(self.steer, WINDOW_MS)
+            elif self.policy_name == "hardwired":
                 self.policies[key] = HardwiredPolicy(self.channels.steer_sign)
             elif self.policy_name == "learning":
                 self.policies[key] = OnlineLearner(len(self.readout_index), self.device)
@@ -98,6 +101,10 @@ class Experiment:
                 mask[:, fly] |= kinds.str.fullmatch(pattern).to_numpy()
         for brain in self.brains.values():
             brain.set_lesion(torch.as_tensor(mask))
+        body_ids, drawn = self.connectome.neurons["bodyId"].to_numpy(), set(self.visible_ids.tolist())
+        # per fly: silenced cells that the viewer draws (bodyIds), plus how many silenced cells there are in total
+        self.silenced_ids = [[int(i) for i in body_ids[mask[:, fly]] if int(i) in drawn] for fly in range(len(self.flies))]
+        self.silenced_total = mask.sum(axis=0).tolist()
 
     def type_catalogue(self) -> list:
         """[[type, cells, superclass], ...] for every annotated neuron type, most numerous first."""
@@ -112,7 +119,7 @@ class Experiment:
             if self.wiring != message["wiring"]:
                 self.feedback.clear()
             self.wiring = message["wiring"]
-        if message.get("policy") in ("trained", "hardwired", "learning"):
+        if message.get("policy") in ("trained", "hardwired", "learning", "instinct"):
             if self.policy_name != message["policy"]:
                 self.feedback.clear()
             self.policy_name = message["policy"]
@@ -199,6 +206,8 @@ class Experiment:
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
             "selected": self.selected, "lesionPresets": LESION_PRESETS,
+            "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
+            "silencedByFly": {str(f): ids for f, ids in enumerate(self.silenced_ids) if ids},
             "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:],
                          "feedback": self.feedback.state()},
             "activeNeurons": int((rates > 0).sum()), "totalNeurons": self.connectome.n,

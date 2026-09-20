@@ -4,13 +4,14 @@ import type { ActivityFrame } from "../lib/replay";
 import type { Atlas } from "../lib/atlas";
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
-export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFrame | null }) {
+export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[] }) {
   const signal = useRef(frame);
+  const lesion = useRef(silenced);
   const orbit = useRef(false);
   const resetView = useRef<(() => void) | null>(null);
   const [orbiting, setOrbiting] = useState(false);
   const repaint = useRef<(() => void) | null>(null);
-  useEffect(() => { signal.current = frame; repaint.current?.(); }, [frame]);
+  useEffect(() => { signal.current = frame; lesion.current = silenced; repaint.current?.(); }, [frame, silenced]);
   const host = useRef<HTMLDivElement>(null);
 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -72,14 +73,17 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(xyz, 3));
       const activity = new Float32Array(bodyIds.length);
       geometry.setAttribute("activity", new THREE.BufferAttribute(activity, 1));
+      const silencedFlag = new Float32Array(bodyIds.length);
+      geometry.setAttribute("silenced", new THREE.BufferAttribute(silencedFlag, 1));
       material = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false,
         uniforms: { pixelRatio: { value: Math.min(window.devicePixelRatio, 2) } },
-        vertexShader: `attribute float activity; varying float strength; uniform float pixelRatio;
-          void main() { strength = activity; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = (0.9 + strength * 2.0) * pixelRatio; }`,
-        fragmentShader: `varying float strength;
+        vertexShader: `attribute float activity; attribute float silenced; varying float strength; varying float cut; uniform float pixelRatio;
+          void main() { strength = activity; cut = silenced; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = (cut > .5 ? 7.0 : 0.9 + strength * 2.0) * pixelRatio; }`,
+        fragmentShader: `varying float strength; varying float cut;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
+          if (cut > .5) { gl_FragColor = vec4(1., .42, .25, r > .34 ? 1. : .55); return; }  // silenced cell: orange ring marker
           vec3 color = mix(vec3(.12,.35,.75), vec3(.2,.95,1.), strength);
           color = mix(color,vec3(1.),smoothstep(.6,1.,strength));
           gl_FragColor = vec4(color,(.28+.65*strength)*(1.-smoothstep(.18,.5,r))); }`,
@@ -87,8 +91,10 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       const paint = () => {
         if (disposed || !geometry) return;
         const values = new Map(signal.current?.values ?? []);
-        for (let i = 0; i < bodyIds.length; i++) activity[i] = values.get(bodyIds[i]) ?? 0;
+        const cutCells = new Set(lesion.current);
+        for (let i = 0; i < bodyIds.length; i++) { activity[i] = values.get(bodyIds[i]) ?? 0; silencedFlag[i] = cutCells.has(bodyIds[i]) ? 1 : 0; }
         geometry.getAttribute("activity").needsUpdate = true;
+        geometry.getAttribute("silenced").needsUpdate = true;
         renderer.render(scene, camera);
       };
       repaint.current = paint;
@@ -137,7 +143,7 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       <button title="Reset to native XY projection with equal axis scale" onClick={() => { orbit.current = false; setOrbiting(false); resetView.current?.(); }}>XY view</button>
       <button aria-pressed={orbiting} onClick={() => { orbit.current = !orbit.current; setOrbiting(orbit.current); }}>Orbit {orbiting ? "on" : "off"}</button>
     </div>
-    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span></div>
+    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
     <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas">
       {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : "Loading anatomy"}</span>}
 
