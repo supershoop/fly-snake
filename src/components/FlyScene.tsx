@@ -18,9 +18,10 @@ const flyColors: Record<string, number> = {
   brown: 0x52351f,
 };
 
-/** Default camera direction. The model's head points along +X and its left side is -Z, so viewing from +X / -Z shows a
- *  three-quarter view with the head toward the left of the screen. Drag still orbits freely. */
-const DEFAULT_VIEW = [1, .65, -1.5] as const;
+// This is the front/keyboard-facing view. Keep it separate so future camera
+// framing can be tuned without changing the rig or any animation data.
+const DEFAULT_CAMERA_DIRECTION = new THREE.Vector3(1, .65, 1.5)
+  .applyAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);
 
 /** How many times the pain clip plays when the snake dies. */
 const DEATH_SCENE_REPEATS = 2;
@@ -72,7 +73,7 @@ export function FlyScene({ command, onDeathSceneLength }: { command: FlyCommand 
       renderer.setSize(Math.max(1, width), Math.max(1, height), false);
       camera.aspect = width / Math.max(1, height);
       const fov = Math.min(camera.fov * Math.PI / 180, 2 * Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect));
-      camera.position.set(...DEFAULT_VIEW).normalize().multiplyScalar(radius / Math.sin(fov / 2) * .55);
+      camera.position.copy(DEFAULT_CAMERA_DIRECTION).normalize().multiplyScalar(radius / Math.sin(fov / 2) * .46);
       camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
       controls.update();

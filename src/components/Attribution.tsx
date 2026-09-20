@@ -4,7 +4,7 @@ import { asset } from '../lib/atlas';
 export function Attribution() {
   return <footer>
     <div className="footer-team">
-      <span>Built by Wenya Hang, Owen, and Kyle for Hack the North 2026.</span>
+      <span>Built by Wenya, Hang, Owen, and Kyle for Hack the North 2026.</span>
       <span>We’re sincerely sorry to this simulated fly for the horrifying little existence we made it live.</span>
     </div>
     <div className="footer-credits">
