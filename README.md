@@ -52,6 +52,18 @@ the brain initially shows anatomy only. **Load synthetic example**, then
 
 ## Make it yours
 
+This fork also includes the Fly Snake simulator and trained descending-neuron
+readout. See [survival training and measured results](docs/TRAINING.md) for the
+training command, comparison with the original model, and remaining limitations.
+
+**Retrain existing readout** starts live learning from a copy of the trained
+model; **Start blank** starts over. Positive and negative
+stimuli train the move displayed when clicked, with adjustable strength and
+per-fly or all-fly targeting. The interface confirms accepted feedback and explains
+rejections. Food and collisions also provide automatic rewards. Live changes last
+for the server session; saved models and connectome synapses stay unchanged.
+Resume a paused game before sending feedback.
+
 | File | Replace or connect |
 | --- | --- |
 | `src/components/Environment.tsx` | Your game, video or sensory scene |
@@ -76,8 +88,8 @@ Missing positions are never generated.
 Native 8 nm coordinates are centered, rigidly rotated and uniformly scaled.
 **XY view** resets the projection; **Orbit** controls rotation. Point size and
 color are display choices. Flybody is a surface mesh here, not a physics
-simulation. No trained policy, neural simulator or biological firing data is
-included.
+simulation. This fork's Snake extension adds a neural simulator and trained
+readout. Its activity is simulated, never biological firing recordings.
 
 The [atlas manifest](public/data/brain-atlas/manifest.json) records source,
 filters and hashes. The [data notice](public/data/brain-atlas/NOTICE.md)

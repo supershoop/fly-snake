@@ -42,8 +42,9 @@ class HardwiredPolicy:
 
 
 class OnlineLearner(Policy):
-    """Starts blank and learns while playing, from reward alone (policy-gradient on the same linear readout).
+    """Learns while playing from reward (policy-gradient on the same linear readout).
 
+    Starts blank by default; from_policy() continues from a copy of an existing readout.
     After each move: weight += rate * reward * (chosen - probabilities) x descending-neuron activity.
     All flies in the batch share one readout, so N flies gather experience N times faster. The brain never changes.
     """
@@ -60,15 +61,28 @@ class OnlineLearner(Policy):
         self.last = (torch.log1p(dn_counts.T), probabilities, action)
         return action, probabilities
 
-    def learn(self, rewards: torch.Tensor):
-        """rewards [B] for the moves chosen by the last act(); zero = no feedback for that fly."""
-        if self.last is None:
+    @classmethod
+    def from_policy(cls, policy: Policy) -> "OnlineLearner":
+        """Continue training a copy, leaving the saved/offline readout untouched."""
+        learner = cls(policy.weight.shape[1], device=policy.weight.device)
+        learner.weight = policy.weight.detach().clone()
+        learner.bias = policy.bias.detach().clone()
+        return learner
+
+    def learn(self, rewards: torch.Tensor, *, experience=None, count_moves: bool = True):
+        """Update from the last act(), or a saved decision for delayed human feedback.
+
+        rewards [B]; zero excludes a fly. Human feedback does not count as another game move.
+        """
+        experience = self.last if experience is None else experience
+        if experience is None:
             return
-        inputs, probabilities, action = self.last
+        inputs, probabilities, action = experience
         error = (torch.nn.functional.one_hot(action, 3).float() - probabilities) * rewards.to(inputs.device)[:, None]
         self.weight += self.rate * error.T @ inputs
         self.bias += self.rate * error.sum(dim=0)
-        self.moves += len(action)
+        if count_moves:
+            self.moves += len(action)
 
 
 def fit(features: torch.Tensor, labels: torch.Tensor, epochs: int = 300, weight_decay: float = 1e-3) -> Policy:

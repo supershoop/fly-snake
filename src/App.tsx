@@ -3,6 +3,7 @@ import { BrainScene } from './components/BrainScene';
 import { FlyScene } from './components/FlyScene';
 import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
+import { LiveTraining } from './components/LiveTraining';
 import { LesionLab } from './components/LesionLab';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
 import { useLiveBrain, type Layout, type PolicyName } from './lib/live';
@@ -38,7 +39,10 @@ export function App() {
   const average = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
   useEffect(() => {
     const keys: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
-    const press = (event: KeyboardEvent) => { const human = keys[event.key]; if (human) { event.preventDefault(); send({ human }); } };
+    const press = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && (event.target.closest('input, select, textarea, button') || event.target.isContentEditable)) return;
+      const human = keys[event.key]; if (human) { event.preventDefault(); send({ human }); }
+    };
     window.addEventListener('keydown', press);
     return () => window.removeEventListener('keydown', press);
   }, [send]);
@@ -61,7 +65,7 @@ export function App() {
       {error && <p className="error" role="alert">{error}</p>}
       <div className="workbench">
         <section className="panel environment-panel"><h2>01 / ENVIRONMENT <span>Snake · egocentric senses</span></h2><Environment frame={frame} onSelect={select => send({ select })}/>
-          <div className="panel-bottom">Food is shown to the fly as a small visual object, walls and body as looming threats</div></section>
+          <div className="panel-bottom">Food drives visual neurons; walls, bodies and routes that cut off escape drive threat neurons</div></section>
         <section className="panel brain-panel"><h2>02 / BRAIN SOMA ATLAS <span>MaleCNS v1.0</span></h2>
           {atlas ? <BrainScene atlas={atlas} frame={activity}/> : <p className="loading" role="status">Loading measured anatomy…</p>}
           <div className="panel-bottom">{frame ? `${frame.activeNeurons.toLocaleString('en-US')} of ${frame.totalNeurons.toLocaleString('en-US')} simulated neurons spiked in the last 100 ms` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`} <a href={asset('data/brain-atlas/NOTICE.md')}>Data notice ↗</a></div>
@@ -85,12 +89,7 @@ export function App() {
       </section>
       <LesionLab frame={frame} types={types} send={send}/>
       <section className="model-status readout learning" aria-label="Live learning">
-        <div><strong>LIVE LEARNING</strong><p>{frame?.policy === 'learning' ? `${frame.learning.moves.toLocaleString('en-US')} moves of experience · last-20 average ${average.toFixed(1)}` : 'Choose “Learn live” to start from a blank readout.'}</p>
-          <div className="controls"><button onClick={() => send({ policy: 'learning', learning: 'reset' })}>New untrained readout</button></div>
-        </div>
-        <div><strong>YOUR FEEDBACK</strong><p>Reward or punish the selected fly’s last move (only used while learning live).</p>
-          <div className="controls"><button onClick={() => send({ feedback: 1, fly: frame?.selected })}>Reward</button><button onClick={() => send({ feedback: -1, fly: frame?.selected })}>Punish</button></div>
-        </div>
+        <LiveTraining frame={frame} status={status} paused={paused} send={send}/>
       </section>
       <section className="model-status" aria-label="Model provenance">
         <strong>{frame ? 'PREDICTED OUTPUT · SIMULATION' : 'ANATOMY ONLY'}</strong>

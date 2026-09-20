@@ -21,7 +21,9 @@ npm ci && npm run dev                                                           
 (macOS/Linux: `.venv/bin/python`.) Trained readouts are committed in `models/`, so the demo runs without retraining.
 First start builds `data/connectome-cache.npz` (~1 min). Tuned on an 8 GB RTX 4070; 16 brains use ~3 GB.
 
-Other commands: `scripts/train_readout.py [--shuffled]` (response bank + readout + live-in-the-loop scores, ~8 min),
+Other commands: `scripts/train_readout.py [--shuffled]` (long-game target training + transition response bank + live scores),
+`scripts/train_readout.py --trials 32 --evaluation bank` (CPU-friendly training with explicitly labelled bank estimates),
+`scripts/evaluate_survival.py --games 4 --max-moves 400` (saved readout vs original, continuous brain),
 `scripts/probe_channels.py` (which senses steer), `scripts/bench_brain.py` (sanity + speed),
 `scripts/live_learning_test.py` (offline test of on-stage learning, no GPU),
 `FLY_RECORD=frames.jsonl` on the server records a session; `scripts/replay_server.py frames.jsonl` replays it with no GPU.
@@ -32,9 +34,13 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 |---|---|
 | `flybrain/connectome.py` | MaleCNS feather files -> signed sparse edges (>=5 synapses; ACh +, GABA/Glu/histamine -). `Connectome.select(type=..., side=...)` |
 | `flybrain/brain.py` | Batched torch LIF (Shiu et al. 2024 parameters), state `[N, B]` = B independent brains. `run(ms, stim_index, stim_level, record_index)` -> spike counts. `set_lesion(mask [N] or [N,B])`, `resize(batch)`, `shuffled=True` = control |
+| `flybrain/cpu_synapses.py` | Faster single-brain CPU propagation: multiply only firing presynaptic columns; full weights and time steps preserved. Batched/GPU simulation retains its original kernel. |
 | `flybrain/channels.py` | Senses: food = LC10 L/R, threat = LC4 L/R, threat ahead = LPLC2. Readout = all 1,314 descending neurons |
-| `flybrain/snake.py` | `Arena`: any number of fly/human snakes on one board, relative actions, rewards, egocentric encoder (24 situations), heuristic `teacher` |
+| `flybrain/snake.py` | `Arena`: any number of fly/human snakes on one board, relative actions, rewards, egocentric encoder (24 situations); legacy sensing available via `lookahead=False` |
+| `flybrain/navigation.py` | Threat observations include loss of a route to the moving tail after a move, accounting for growth; never overrides actions |
+| `flybrain/training.py`, `flybrain/response_bank.py` | Learn target preferences from long-game food scores; collect real DN responses with state carried between inputs |
 | `flybrain/readout.py` | `Policy` (linear, fitted offline), `OnlineLearner` (same readout, learns live from reward), `HardwiredPolicy` (DNa02/DNa01 left-minus-right, nothing trained) |
+| `flybrain/feedback.py`, `src/components/LiveTraining.tsx` | Reward/punishment for a displayed move; delayed feedback trains saved decisions, with receipts and stale-decision rejection |
 | `flybrain/server.py` | FastAPI WebSocket live loop: layouts, policies, per-fly lesions, sensor input, feedback, human control |
 | `src/lib/live.ts` | Frame types + WebSocket hook. `src/App.tsx` layout/controls, `src/components/Environment.tsx` boards, `BrainScene.tsx` takes `{time, values:[bodyId, 0..1][]}` |
 
@@ -44,17 +50,22 @@ Client -> server, any combination of keys in one message (applied between moves)
 |---|---|
 | `{"layout": "solo"\|"swarm"\|"versus"\|"arena"}` | 1 fly · 16 flies on 16 boards · fly vs human on one board · 8 flies on one board |
 | `{"policy": "trained"\|"hardwired"\|"learning"}`, `{"wiring": "real"\|"shuffled"}` | who picks the move; scrambled-wiring control |
-| `{"learning": "reset"}` | blank readout for live learning (rewards: food +1, death -1, closer/farther +-0.1) |
-| `{"feedback": 1\|-1, "fly": i or omitted for all}` | human reward / punishment added to the last move's reward (learning policy only) |
+| `{"learning": "reset"\|"pretrained"}` | switch to live learning from a blank readout or a copy of the trained readout for the current wiring; saved models are unchanged (automatic rewards: food +1, death -1, closer/farther +-0.1) |
+| `{"feedback": value, "fly": i\|null, "move": moveId}` | reward/punishment in [-1, 1], excluding zero, for a displayed decision (learning policy only); omitted/null fly targets all eligible flies; omitted move uses latest saved decision. The last 64 decisions are retained; experiment/model changes invalidate them. Receipts report applied or rejected feedback. |
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
 | `{"sensor": {"danger_ahead": 0.8}}` | hardware input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz |
 | `{"stimulate": {"food_L": 1}\|null}` | manual override of all senses; game holds still while set |
 | `{"human": "up"\|"down"\|"left"\|"right"}`, `{"select": i}`, `{"paused": bool}` | human snake; which fly's brain is shown; pause |
 
 Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `arenas[]` (boards, foods, snakes), `flies[]`
-(per fly: `channels`, `action`, `probabilities`, `reward`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
-`values` (selected fly's brain activity by bodyId), `learning {moves, games, scores[]}`, `activeNeurons`, `sensor`, `manual`.
-Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you change the protocol, update this table and `live.ts`.**
+(per fly: `channels`, `action`, `probabilities`, `reward`, `feedbackEligible`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
+`move` (monotonically increasing decision ID), `values` (selected fly's brain activity by bodyId),
+`learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`.
+Feedback `last` is null, `{status: "applied", value, fly, move, targets[]}`, or `{status: "rejected", reason}`.
+Live readout changes last for the server session. Feedback controls require an unpaused game without manual sensory override.
+Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. Game danger channels indicate immediate collision
+or a move cutting off the path to the snake's moving tail. This is an engineered spatial observation, not measured fly perception.
+**If you change the protocol, update this table and `live.ts`.**
 
 ## Findings so far (keep these honest in the pitch)
 - `MALECNS_WEIGHT_SCALE = 0.4`: MaleCNS has ~2x the synapse counts FlyWire has, so Shiu's 0.275 mV/synapse gives runaway
@@ -62,7 +73,9 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
 - Reproduces the Shiu headline on a different (male) connectome: sugar GRNs (type `LB3*`) -> MN9 fires; bitter (`LB1*`) -> 0 Hz.
 - Left LC10 -> DNa02 left ~250 Hz vs right 0 Hz (pursuit steering). Left LC4/LPLC2 -> giant fiber DNp01 ~390 Hz (escape),
   LC4 -> contralateral DNa01 (turn away). All emerge from wiring alone.
-- 32 games, live sim in the loop: trained readout **17.4** mean score (max 33) · hardwired, nothing trained **2.75** · random **0.03**.
+- Historical baseline with adjacent-cell sensing, 32 games, live sim in the loop: trained readout **17.4** mean score (max 33) · hardwired **2.75** · random **0.03**.
+- Survival retraining: 64 held-out games, 1,600-move limit, **sampled response-bank estimates**: original **11.08**, new senses alone **14.30**, retrained **54.34** mean food score; collisions **64 / 64 / 0**. Retrained games still include 45 starvation timeouts. These are not live-brain scores. See `docs/TRAINING.md` and `models/readout-real-training.json`.
+- Separate continuous-brain smoke check, four new seeds, 275 recorded moves: original mean **12.0**, **4/4 collisions**; retrained mean **24.5**, **1/4 collisions**, three games still alive at the cap. This is a small censored comparison, not a guarantee. See `models/readout-real-live-evaluation.json`.
 - Scrambled wiring (`scripts/scrambled_check.py`, 16 games): with a readout trained on it, the scrambled network scores
   **14.3** vs **18.8** for the real wiring. So a trained readout can play through almost any network that keeps left and right
   inputs separable - **scrambled-vs-real with the trained readout is NOT evidence that the wiring matters.** The evidence is the
@@ -96,8 +109,9 @@ Channel names: `food_L, food_R, danger_L, danger_R, danger_ahead`. **If you chan
   readout only - say so. Still possible as a side demo: odour conditioning with PAM/PPL1 dopamine and a KC->MBON rule, visible
   as a changed MBON response, not as changed steering.
 - With DNa02 silenced the trained readout still steers (it uses other descending neurons); the hardwired policy cannot.
-- Known weakness to answer: the game shows the brain only 24 distinct situations and the readout copies a rule-based teacher,
-  so "the readout plays, the brain relabels" is a fair criticism. Lesions, the untrained mode and real vision are the answers.
+- Known weakness to answer: the game still shows only 24 distinct situations. Target preferences start from a heuristic and are
+  optimized on full-game scores; the encoder now computes tail connectivity. This is engineered spatial preprocessing, not evidence
+  that a biological fly plans routes. "The readout plays, the brain relabels" remains a fair criticism.
 - Everything the viewer shows is *simulated / predicted* activity, never measured. Say so.
 
 ## Conventions

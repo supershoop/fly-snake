@@ -1,5 +1,5 @@
 """How long would on-stage training take? Offline test of OnlineLearner: brain responses are sampled from the saved
-response bank (data/bank-real.npz) instead of running the simulator, so this needs no GPU and runs in seconds.
+response bank (data/bank-real-transition.npz) instead of running the simulator, so this needs no GPU and runs in seconds.
 
 Run: .venv/Scripts/python scripts/live_learning_test.py [--flies 16] [--rate 0.02]
 """
@@ -20,7 +20,7 @@ parser.add_argument("--flies", type=int, nargs="+", default=[1, 16])
 parser.add_argument("--rate", type=float, nargs="+", default=[0.005, 0.02, 0.08])
 parser.add_argument("--rounds", type=int, default=1500, help="moves per fly")
 parser.add_argument("--seconds-per-round", type=float, default=0.25, help="measured wall time of one batched brain window")
-parser.add_argument("--bank", default="bank-real")
+parser.add_argument("--bank", default="bank-real-transition")
 parser.add_argument("--seeds", type=int, default=1, help="independent repeats (different boards, exploration and brain-response samples)")
 args = parser.parse_args()
 
