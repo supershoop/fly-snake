@@ -2,6 +2,7 @@
 .audience-copy { flex: 1 1 200px; min-width: 0; max-width: 640px; }
 .audience-copy h3 { color: var(--cornsilk-50); font-family: Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -.5px; margin: 12px 0; }
 .audience-copy .audience-link { display: block; color: var(--cornsilk-50); font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; margin: 12px 0; }
+.audience-copy p, .audience-copy label { color: #fff; }
 .audience-copy .controls { align-items: center; gap: 18px; }
 .audience-copy .controls a { font-size: 11px; }
 .audience-copy .audience-copy-result { min-height: 1.5em; margin: 6px 0; font-size: 11px; }
