@@ -57,6 +57,7 @@ class Experiment:
         self.sensor, self.sensor_seen = {}, 0.0
         self.feedback, self.move = HumanFeedback(), 0
         self.history: list[float] = []  # score of every finished fly game, oldest first
+        self.death_hold = 0.0           # seconds the game holds still after the displayed fly dies (set by the page)
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
         self.set_layout("solo")
 
@@ -152,6 +153,8 @@ class Experiment:
                 for index, snake in enumerate(arena.snakes):
                     if snake.kind == "human":
                         arena.steer_human(index, message["human"])
+        if "deathHold" in message:  # the page reports how long its death animation lasts
+            self.death_hold = min(5.0, max(0.0, float(message["deathHold"])))
         if "select" in message:
             self.selected = int(message["select"]) % len(self.flies)
         if "paused" in message:
@@ -229,7 +232,8 @@ async def loop():
             await asyncio.sleep(0.1)
             continue
         try:
-            message = json.dumps(await asyncio.to_thread(experiment.tick))
+            frame = await asyncio.to_thread(experiment.tick)
+            message = json.dumps(frame)
         except FileNotFoundError:  # e.g. scrambled-wiring readout not trained yet: scripts/train_readout.py --shuffled
             experiment.wiring, experiment.policy_name = "real", "trained"
             continue
@@ -238,6 +242,8 @@ async def loop():
         for client in list(clients):
             with contextlib.suppress(Exception):
                 await client.send_text(message)
+        if experiment.death_hold and frame["flies"][frame["selected"]]["reward"] <= -1:
+            await asyncio.sleep(experiment.death_hold)  # let the displayed fly's death scene play out
 
 
 @app.on_event("startup")
