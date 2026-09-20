@@ -251,4 +251,6 @@ message and the unmerged branch `origin/hardware-track-pi-websocket` remain if a
 No-go after feasibility checks: painting pixels onto the eye; mushroom-body learning that changes steering.
 Before the demo: feature freeze, a fallback video of a good run, one full rehearsal on the demo machine with
 `outputs/gpu-temps.csv` open afterwards, and decide whether the Trained button stays (Normal is the honest hero).
+For the demo and the pitch: `docs/DEMO-SCRIPT.md` (what to click and say), `docs/PITCH.md` (defensible numbers, judge questions),
+`docs/SUBMISSION.md` (paste-ready submission text). Keep their numbers in step with Findings.
 Evidence scripts: `lesion_scores.py`, `untrained_control.py`, `scrambled_check.py`, `live_learning_test.py`, `instinct_analysis.py`.
