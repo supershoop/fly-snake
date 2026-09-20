@@ -24,6 +24,7 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
   const play = useRef<(animation: FlyAnimation) => void>(() => {});
   const requestedAnimation = useRef<FlyAnimation | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!command) return;
@@ -50,7 +51,8 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enablePan = false;
-    controls.enableZoom = false;
+    controls.enableZoom = true;
+    controls.zoomSpeed = .8;
     scene.add(new THREE.HemisphereLight(0xffedda, 0x18202a, 3));
     const light = new THREE.DirectionalLight(0xffdfb2, 4);
     light.position.set(2, 3, 4);
@@ -99,6 +101,8 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
       const bounds = new THREE.Box3().setFromObject(modelRoot);
       modelRoot.position.sub(bounds.getCenter(new THREE.Vector3()));
       radius = bounds.getBoundingSphere(new THREE.Sphere()).radius;
+      controls.minDistance = radius * .4;
+      controls.maxDistance = radius * 5;
       mixer = new THREE.AnimationMixer(gltf.scene);
       const actions = new Map(gltf.animations.map(clip => [clip.name.toLowerCase(), mixer!.clipAction(clip)]));
       const idle = actions.get('idle');
@@ -141,8 +145,12 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
       if (requestedAnimation.current) trigger(requestedAnimation.current);
       else playIdle();
       resize();
+      setLoading(false);
     }).catch(loadError => {
-      if (!disposed) setError(`Fly animation unavailable: ${String(loadError)}`);
+      if (!disposed) {
+        setError(`Fly animation unavailable: ${String(loadError)}`);
+        setLoading(false);
+      }
     });
 
     const observer = new ResizeObserver(resize);
@@ -165,5 +173,5 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
     };
   }, []);
 
-  return <div ref={host} className="three-viewport" aria-label="Animated fly at a directional keyboard. Each live model move presses its matching key; drag to rotate.">{error && <p role="alert">{error}</p>}</div>;
+  return <div ref={host} className="three-viewport" aria-label="Animated fly at a directional keyboard. Each live model move presses its matching key; drag to rotate and scroll to zoom.">{loading && <div className="scene-loading" role="status"><i className="spinner"/>Loading rigged fly…</div>}{error && <p role="alert">{error}</p>}</div>;
 }

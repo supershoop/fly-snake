@@ -10,7 +10,9 @@ import json
 import os
 import time
 import warnings
+from collections import deque
 from pathlib import Path
+from threading import Lock
 
 import numpy as np
 import torch
@@ -20,13 +22,14 @@ from .brain import Brain
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
-from .readout import HardwiredPolicy, OnlineLearner, Policy
-from .snake import Arena
+from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
+from .snake import Arena, HEADING_NAMES
 
 warnings.filterwarnings("ignore")
 WINDOW_MS = 100.0
 FULL_SCALE_HZ = 100.0  # activity sent to the viewer = firing rate / FULL_SCALE_HZ, clamped to [0, 1]
 SENSOR_HOLD_S = 0.6    # an external sensor reading goes stale after this long
+HUMAN_INPUT_BUFFER = 2  # one upcoming turn plus one follow-up turn; repeated keydown events are coalesced
 ATLAS = Path(__file__).resolve().parents[1] / "public/data/brain-atlas"
 LAYOUTS = {  # name -> list of arenas, each (board size, snake kinds, foods)
     "solo": [(12, ("fly",), 1)],
@@ -58,17 +61,25 @@ class Experiment:
         self.feedback, self.move = HumanFeedback(), 0
         self.history: list[float] = []  # score of every finished fly game, oldest first
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
+        # Human movement arrives on the event-loop thread while tick() runs in a
+        # worker. Consume only one heading per tick so a quick pair of turns is
+        # preserved instead of every message collapsing into the last direction.
+        self.human_moves: deque[str] = deque()
+        self.human_move_lock = Lock()
         self.set_layout("solo")
 
     # --- configuration ---------------------------------------------------------------------------------------------
     def set_layout(self, name: str):
         self.feedback.clear()
+        with self.human_move_lock:
+            self.human_moves.clear()
         self.layout = name
         self.arenas = [Arena(size, kinds, foods, seed=i) for i, (size, kinds, foods) in enumerate(LAYOUTS[name])]
         self.flies = [(a, s) for a, arena in enumerate(self.arenas) for s, snake in enumerate(arena.snakes) if snake.kind == "fly"]
         if self.device.type == "cpu":
             torch.set_num_threads(min(os.cpu_count() or 1, 4 if len(self.flies) == 1 else 8))
         self.lesions: list[list[str]] = [[] for _ in self.flies]
+        self.silenced_ids, self.silenced_total = [[] for _ in self.flies], [0] * len(self.flies)
         self.selected, self.history = 0, []
         for brain in self.brains.values():
             brain.resize(len(self.flies))
@@ -82,7 +93,9 @@ class Experiment:
     def policy(self):
         key = (self.policy_name, self.wiring)
         if key not in self.policies:
-            if self.policy_name == "hardwired":
+            if self.policy_name == "instinct":
+                self.policies[key] = InstinctPolicy(self.steer, WINDOW_MS)
+            elif self.policy_name == "hardwired":
                 self.policies[key] = HardwiredPolicy(self.channels.steer_sign)
             elif self.policy_name == "learning":
                 self.policies[key] = OnlineLearner(len(self.readout_index), self.device)
@@ -98,12 +111,32 @@ class Experiment:
                 mask[:, fly] |= kinds.str.fullmatch(pattern).to_numpy()
         for brain in self.brains.values():
             brain.set_lesion(torch.as_tensor(mask))
+        body_ids, drawn = self.connectome.neurons["bodyId"].to_numpy(), set(self.visible_ids.tolist())
+        # per fly: silenced cells that the viewer draws (bodyIds), plus how many silenced cells there are in total
+        self.silenced_ids = [[int(i) for i in body_ids[mask[:, fly]] if int(i) in drawn] for fly in range(len(self.flies))]
+        self.silenced_total = mask.sum(axis=0).tolist()
 
     def type_catalogue(self) -> list:
         """[[type, cells, superclass], ...] for every annotated neuron type, most numerous first."""
         neurons = self.connectome.neurons.dropna(subset=["type"])
         table = neurons.groupby("type").agg(cells=("bodyId", "size"), superclass=("superclass", "first")).sort_values("cells", ascending=False)
         return [[kind, int(row.cells), row.superclass if isinstance(row.superclass, str) else ""] for kind, row in table.iterrows()]
+
+    def queue_human_move(self, heading: object):
+        """Retain at most two distinct player inputs, consuming one on each tick."""
+        if self.layout != "versus" or not isinstance(heading, str) or heading not in HEADING_NAMES:
+            return
+        with self.human_move_lock:
+            # Browsers generate repeated keydown events while a key is held. They
+            # do not represent additional turns, so never let them fill the buffer.
+            if self.human_moves and self.human_moves[-1] == heading:
+                return
+            if len(self.human_moves) < HUMAN_INPUT_BUFFER:
+                self.human_moves.append(heading)
+
+    def take_human_move(self) -> str | None:
+        with self.human_move_lock:
+            return self.human_moves.popleft() if self.human_moves else None
 
     def handle(self, message: dict):
         if message.get("layout") in LAYOUTS:
@@ -112,7 +145,7 @@ class Experiment:
             if self.wiring != message["wiring"]:
                 self.feedback.clear()
             self.wiring = message["wiring"]
-        if message.get("policy") in ("trained", "hardwired", "learning"):
+        if message.get("policy") in ("trained", "hardwired", "learning", "instinct"):
             if self.policy_name != message["policy"]:
                 self.feedback.clear()
             self.policy_name = message["policy"]
@@ -141,10 +174,7 @@ class Experiment:
             self.feedback.clear()
             self.override = message["stimulate"]
         if "human" in message:
-            for arena in self.arenas:
-                for index, snake in enumerate(arena.snakes):
-                    if snake.kind == "human":
-                        arena.steer_human(index, message["human"])
+            self.queue_human_move(message["human"])
         if "select" in message:
             self.selected = int(message["select"]) % len(self.flies)
         if "paused" in message:
@@ -152,9 +182,17 @@ class Experiment:
 
     # --- one move --------------------------------------------------------------------------------------------------
     def tick(self) -> dict:
+        # One buffered heading is applied to this move. Messages received while
+        # this tick is calculating remain queued for the following move.
+        human_heading = self.take_human_move()
         while self.inbox:
             with contextlib.suppress(KeyError, ValueError, TypeError, IndexError, AttributeError):
                 self.handle(self.inbox.pop(0))
+        if human_heading is not None:
+            for arena in self.arenas:
+                for index, snake in enumerate(arena.snakes):
+                    if snake.kind == "human":
+                        arena.steer_human(index, human_heading)
         brain, policy = self.brain(), self.policy()
         levels = np.stack([self.arenas[a].encode(s) for a, s in self.flies], axis=1)  # [C, B]
         if self.override is not None:
@@ -199,6 +237,8 @@ class Experiment:
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
             "selected": self.selected, "lesionPresets": LESION_PRESETS,
+            "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
+            "silencedByFly": {str(f): ids for f, ids in enumerate(self.silenced_ids) if ids},
             "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:],
                          "feedback": self.feedback.state()},
             "activeNeurons": int((rates > 0).sum()), "totalNeurons": self.connectome.n,
@@ -247,9 +287,17 @@ async def socket(websocket: WebSocket):
                 await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue()}}))
                 continue
             if experiment is not None and isinstance(message, dict):
+                # Human commands are intentionally queued immediately. This
+                # keeps them ordered even while the brain calculation runs in a
+                # worker thread, rather than letting a burst overwrite itself in
+                # the generic between-tick inbox.
+                if "human" in message:
+                    experiment.queue_human_move(message["human"])
+                    message = {key: value for key, value in message.items() if key != "human"}
                 if "paused" in message:
                     experiment.paused = bool(message["paused"])
-                experiment.inbox.append(message)
+                if message:
+                    experiment.inbox.append(message)
     except WebSocketDisconnect:
         pass
     finally:

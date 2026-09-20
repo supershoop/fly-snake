@@ -34,6 +34,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .mono, .eyebrow, .panel-number, .panel-meta, .score-value, .game-scorebar strong, .session-summary strong { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .eyebrow { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 500; line-height: 1.5; }
 .accent-text { color: var(--accent) !important; }
+.spinner { display: inline-block; width: 13px; height: 13px; flex: 0 0 13px; border: 2px solid #8fa47d55; border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -.2em; }
+.pending-inline { display: inline-flex; align-items: center; gap: 8px; color: #c9ddba; }
+.command-toast { position: fixed; z-index: 30; right: 24px; bottom: 24px; display: flex; align-items: flex-start; gap: 10px; max-width: min(360px, calc(100vw - 48px)); padding: 12px 14px; border: 1px solid #617754; border-radius: 7px; background: #1c2619f5; box-shadow: 0 12px 30px #0006; color: #deeed0; font-size: 12px; }
+.command-toast > span { display: flex; flex-direction: column; gap: 3px; }
+.command-toast small { color: #a8b99e; font-size: 10px; }
+@keyframes spin { to { transform: rotate(1turn); } }
 .site-header, main, footer { max-width: 1512px; margin-inline: auto; padding-inline: 48px; }
 .site-header { min-height: 83px; display: flex; align-items: center; gap: 25px; border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; gap: 12px; align-items: center; text-decoration: none; font-weight: 650; letter-spacing: -.7px; font-size: 24px; white-space: nowrap; }
@@ -110,6 +116,8 @@ h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(29px, 2.6v
 .game-overlay { position: absolute; inset: 0 24px; display: grid; place-items: center; pointer-events: none; background: #10151045; }
 .game-overlay > span { padding: 16px 24px; background: #171e16f2; border: 1px solid #6d8155; border-radius: 8px; text-align: center; color: #e4efda; font-size: 15px; }
 .game-overlay small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+.game-overlay .spinner { margin-right: 8px; }
+.game-overlay.is-pending { background: #1015107a; }
 .board-legend { display: flex; align-items: center; gap: 17px; padding: 11px 24px; font-size: 10px; color: var(--muted); }
 .board-legend > span { display: inline-flex; align-items: center; gap: 7px; }
 .board-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 2px; }
@@ -135,6 +143,7 @@ h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(29px, 2.6v
 .connection-help span { display: block; color: var(--muted); font-size: 10px; margin-top: 9px; }
 .three-viewport { position: absolute; inset: 50px 0 38px; touch-action: none; }
 .three-viewport canvas { display: block; width: 100%; height: 100%; }
+.scene-loading { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 9px; color: var(--muted); font-size: 11px; background: #171c18d9; }
 .brain-viewport { inset: 83px 14px 65px; }
 .brain-view-controls { position: absolute; top: 60px; right: 16px; z-index: 5; display: flex; gap: 5px; }
 .brain-view-controls button { min-height: 27px; padding: 4px 8px; font-size: 9px; border-color: #3e483b; background: #1b241b; }
@@ -147,7 +156,7 @@ h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(29px, 2.6v
 .body-caption { position: absolute; top: 100px; left: 20px; pointer-events: none; display: flex; flex-direction: column; gap: 12px; max-width: 41%; }
 .body-caption em { font-family: Georgia, serif; font-size: 14px; color: #d0d8c8; }
 .body-caption > span { color: var(--faint); line-height: 1.8; font-size: 10px; }
-.neural-load, .loading { display: block; color: var(--muted); padding: 24px; font-size: 12px; }
+.neural-load, .loading { display: flex; align-items: center; gap: 9px; color: var(--muted); padding: 24px; font-size: 12px; }
 .signal-panel { display: grid; grid-template-columns: 1fr .85fr 1.25fr; margin-top: 16px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; }
 .signal-block { padding: 21px 23px; min-width: 0; }
 .signal-block + .signal-block { border-left: 1px solid var(--line); }
@@ -210,6 +219,7 @@ meter::-moz-meter-bar { background: #91b880; border-radius: 3px; }
 .lesion-lab small { color: var(--muted); }
 .lesion-lab .chip { min-height: 28px; margin: 3px 0 3px 5px; padding: 4px 8px; color: #e3ba94; border-color: #786045; background: #30281e; }
 .training-feedback .feedback-result { min-height: 2.8em; border-left: 2px solid #6c8357; padding-left: 12px; color: #c2d4b1; }
+.pending-text { display: flex; align-items: center; gap: 8px; color: #c9ddba !important; }
 .training-feedback .feedback-scope { padding-top: 10px; }
 .training-feedback output { font-family: var(--mono); min-width: 4ch; }
 .controls .stimulus-positive { color: #c6e4ae; border-color: #60774c; background: #2d3b23; }
@@ -227,6 +237,8 @@ meter::-moz-meter-bar { background: #91b880; border-radius: 3px; }
 footer { border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; font-size: 10px; color: #91a087; padding-block: 24px; line-height: 1.8; }
 footer a { color: #b6c6a7; }
 .error { font-size: 12px; border: 1px solid #9b6651; padding: 14px; color: #eac5b0; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 
 @media (min-width: 1600px) { .workbench { grid-template-rows: 380px 240px; } }
 @media (max-width: 1180px) {
@@ -283,3 +295,17 @@ footer a { color: #b6c6a7; }
   footer { flex-direction: column; font-size: 9px; padding-block: 21px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+
+/* Picked and lesioned flies (lesion lab) */
+.board-select.is-lesioned { border-color: #a0634d; }
+.board-select.is-lesioned > span { color: #e9a58c; }
+.single-board.is-picked svg { border-color: var(--accent); }
+.single-board.is-lesioned svg { border-color: #a0634d; }
+.pick-hint { color: #7f8d7c; }
+.brain-legend .cut-key i, .brain-legend span.cut-key:last-child i { background: transparent; border: 2px solid #ff6b40; width: 8px; height: 8px; }
+.lesion-lab .chip small { opacity: .7; }
+.lesion-note { border-left: 2px solid #a0634d; padding-left: 10px; color: #e9c3b3; }
+.lesion-meters .steer-row { display: grid; grid-template-columns: 110px 1fr 1fr minmax(170px, auto); gap: 8px; align-items: center; margin-top: 6px; font-size: 10px; }
+.lesion-meters meter { width: 100%; height: 8px; }
+.lesion-lab { grid-template-columns: 1.2fr 1fr 1fr; }
+@media (max-width: 1000px) { .lesion-lab { grid-template-columns: 1fr; } }

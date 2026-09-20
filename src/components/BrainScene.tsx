@@ -4,13 +4,14 @@ import type { ActivityFrame } from "../lib/replay";
 import type { Atlas } from "../lib/atlas";
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
-export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFrame | null }) {
+export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[] }) {
   const signal = useRef(frame);
+  const lesion = useRef(silenced);
   const orbit = useRef(false);
   const resetView = useRef<(() => void) | null>(null);
   const [orbiting, setOrbiting] = useState(false);
   const repaint = useRef<(() => void) | null>(null);
-  useEffect(() => { signal.current = frame; repaint.current?.(); }, [frame]);
+  useEffect(() => { signal.current = frame; lesion.current = silenced; repaint.current?.(); }, [frame, silenced]);
   const host = useRef<HTMLDivElement>(null);
 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -27,7 +28,7 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
     element.appendChild(renderer.domElement);
     const anatomy = new THREE.Group();
     scene.add(anatomy);
-    resetView.current = () => { anatomy.rotation.set(0, 0, 0); fit(); };
+    resetView.current = () => { anatomy.rotation.set(0, 0, 0); camera.zoom = 1; fit(); };
     let geometry: THREE.BufferGeometry | undefined;
     let material: THREE.ShaderMaterial | undefined;
     let size = new THREE.Vector3(5, 2, 1);
@@ -36,9 +37,9 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       const { width, height } = element.getBoundingClientRect();
       renderer.setSize(Math.max(1, width), Math.max(1, height), false);
       const aspect = Math.max(1, width) / Math.max(1, height);
-      const yawRadius = Math.hypot(size.x, size.z) / 2;
-      const tiltedHeight = Math.abs(Math.cos(anatomy.rotation.x)) * size.y / 2 + Math.abs(Math.sin(anatomy.rotation.x)) * yawRadius;
-      const halfHeight = Math.max(tiltedHeight, yawRadius / aspect) * 1.08;
+      // Frame the whole atlas once, rather than changing the camera scale as it rotates.
+      const radius = size.length() / 2;
+      const halfHeight = Math.max(radius, radius / aspect) * 1.08;
       camera.top = halfHeight; camera.bottom = -halfHeight;
       camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect;
       camera.position.set(0, 0, 10);
@@ -72,14 +73,17 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(xyz, 3));
       const activity = new Float32Array(bodyIds.length);
       geometry.setAttribute("activity", new THREE.BufferAttribute(activity, 1));
+      const silencedFlag = new Float32Array(bodyIds.length);
+      geometry.setAttribute("silenced", new THREE.BufferAttribute(silencedFlag, 1));
       material = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false,
         uniforms: { pixelRatio: { value: Math.min(window.devicePixelRatio, 2) } },
-        vertexShader: `attribute float activity; varying float strength; uniform float pixelRatio;
-          void main() { strength = activity; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = (0.9 + strength * 2.0) * pixelRatio; }`,
-        fragmentShader: `varying float strength;
+        vertexShader: `attribute float activity; attribute float silenced; varying float strength; varying float cut; uniform float pixelRatio;
+          void main() { strength = activity; cut = silenced; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = (cut > .5 ? 7.0 : 0.9 + strength * 2.0) * pixelRatio; }`,
+        fragmentShader: `varying float strength; varying float cut;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
+          if (cut > .5) { gl_FragColor = vec4(1., .42, .25, r > .34 ? 1. : .55); return; }  // silenced cell: orange ring marker
           vec3 color = mix(vec3(.12,.35,.75), vec3(.2,.95,1.), strength);
           color = mix(color,vec3(1.),smoothstep(.6,1.,strength));
           gl_FragColor = vec4(color,(.28+.65*strength)*(1.-smoothstep(.18,.5,r))); }`,
@@ -87,8 +91,10 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       const paint = () => {
         if (disposed || !geometry) return;
         const values = new Map(signal.current?.values ?? []);
-        for (let i = 0; i < bodyIds.length; i++) activity[i] = values.get(bodyIds[i]) ?? 0;
+        const cutCells = new Set(lesion.current);
+        for (let i = 0; i < bodyIds.length; i++) { activity[i] = values.get(bodyIds[i]) ?? 0; silencedFlag[i] = cutCells.has(bodyIds[i]) ? 1 : 0; }
         geometry.getAttribute("activity").needsUpdate = true;
+        geometry.getAttribute("silenced").needsUpdate = true;
         renderer.render(scene, camera);
       };
       repaint.current = paint;
@@ -108,13 +114,18 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       anatomy.rotation.y += (event.clientX - lastX) * .006;
       anatomy.rotation.x += (event.clientY - lastY) * .006;
       lastX = event.clientX; lastY = event.clientY;
-      fit();
     };
     const up = () => { held = false; };
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      camera.zoom = THREE.MathUtils.clamp(camera.zoom * Math.exp(-event.deltaY * .001), .45, 4);
+      camera.updateProjectionMatrix();
+    };
     renderer.domElement.addEventListener("pointerdown", down);
     renderer.domElement.addEventListener("pointermove", move);
     renderer.domElement.addEventListener("pointerup", up);
     renderer.domElement.addEventListener("pointercancel", up);
+    renderer.domElement.addEventListener("wheel", wheel, { passive: false });
     let frame = 0, previous = performance.now();
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const animate = (now: number) => {
@@ -128,6 +139,7 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       disposed = true; resetView.current = null; cancelAnimationFrame(frame); repaint.current = null; observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", down); renderer.domElement.removeEventListener("pointermove", move);
       renderer.domElement.removeEventListener("pointerup", up); renderer.domElement.removeEventListener("pointercancel", up);
+      renderer.domElement.removeEventListener("wheel", wheel);
       geometry?.dispose(); material?.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
   }, [atlas]);
@@ -137,9 +149,9 @@ export function BrainScene({ atlas, frame }: { atlas: Atlas; frame: ActivityFram
       <button title="Reset to native XY projection with equal axis scale" onClick={() => { orbit.current = false; setOrbiting(false); resetView.current?.(); }}>XY view</button>
       <button aria-pressed={orbiting} onClick={() => { orbit.current = !orbit.current; setOrbiting(orbit.current); }}>Orbit {orbiting ? "on" : "off"}</button>
     </div>
-    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span></div>
-    <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas">
-      {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : "Loading anatomy"}</span>}
+    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
+    <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas. Drag to rotate and scroll to zoom.">
+      {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : <><i className="spinner"/>Loading anatomy…</>}</span>}
 
     </div>
   </>;

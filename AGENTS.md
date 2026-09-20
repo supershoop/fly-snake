@@ -52,7 +52,7 @@ Client -> server, any combination of keys in one message (applied between moves)
 | Key | Meaning |
 |---|---|
 | `{"layout": "solo"\|"swarm"\|"versus"\|"arena"}` | 1 fly · 16 flies on 16 boards · fly vs human on one board · 8 flies on one board |
-| `{"policy": "trained"\|"hardwired"\|"learning"}`, `{"wiring": "real"\|"shuffled"}` | who picks the move; scrambled-wiring control |
+| `{"policy": "trained"\|"instinct"\|"hardwired"\|"learning"}`, `{"wiring": "real"\|"shuffled"}` | who picks the move; scrambled-wiring control |
 | `{"learning": "reset"\|"pretrained"}` | switch to live learning from a blank readout or a copy of the trained readout for the current wiring; saved models are unchanged (automatic rewards: food +1, death -1, closer/farther +-0.1) |
 | `{"feedback": value, "fly": i\|null, "move": moveId}` | reward/punishment in [-1, 1], excluding zero, for a displayed decision (learning policy only); omitted/null fly targets all eligible flies; omitted move uses latest saved decision. The last 64 decisions are retained; experiment/model changes invalidate them. Receipts report applied or rejected feedback. |
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
@@ -101,6 +101,21 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
   ~6 cells in the anterior optic tubercle (AOTU025, AOTU012, AOTU015 - the known pursuit pathway). LC4 -> giant fiber DNp01 is
   direct (3,782 synapses, a textbook circuit). LC4 -> contralateral DNa01 runs through PVLP141 and PVLP137.
   `scripts/lesion_scores.py` silences these and scores play; the web page's Lesion lab does it live (`src/components/LesionLab.tsx`).
+- **Normal mode = `InstinctPolicy` (nothing trained).** Diagnosis (`scripts/instinct_analysis.py`, offline on the response bank):
+  the old rule (DNa02 + DNa01 left-minus-right) dies because pursuit always wins - food on a blocked side drives DNa02 to ~240 Hz
+  while the turn-away neuron DNa01 stays at 0-10 Hz, so it turns into the obstacle 100% of the time. The brain does register
+  the threat: the giant fiber DNp01 fires ~370 Hz on the blocked side vs ~78 Hz. Instinct = the same pursuit steering plus two
+  giant-fiber overrides: *veto* (never turn toward the side whose giant fiber fires >100 Hz harder) and *dodge* (both giant fibers
+  >150 Hz and nothing pulling sideways -> turn away from the louder one). Thresholds are hand-set, not fitted - say so.
+  Offline, 200 games: old rule 4.3 food / 39 moves; instinct 6.8 / 64; teacher 22.5 / 210.
+  **Double dissociation**, live, 16 real brains, ~3 min: intact ~75 moves per life, last games 3-18 food; DNa02 silenced ~276 moves
+  per life but 0-1 food (wanders, still dodges); DNp01 silenced ~25 moves per life, ~2 food (still seeks food, crashes 3x as often).
+  DNa01 silenced: no effect. Remaining weakness: a threat straight ahead saturates both giant fibers (~380 Hz), hiding which side
+  is worse; lowering threat intensity keeps them graded but still symmetric (`scripts/threat_intensity_probe.py`) - better senses,
+  not a cleverer rule, are the fix.
+- Page: modes are Trained / Normal / Scrambled / Training (Scrambled = scrambled wiring + the same instinct rule, the fair control).
+  Click boards to pick flies (multi-select); the lesion lab appears for the picked flies and their silenced cells are drawn as orange
+  rings in the brain view (`silencedByFly` in the frame). Live learning shows only in Training. No pause, no manual stimulation.
 - Lesion table (`lesion_scores.py`, 8 games each, live sim). **Nothing-trained policy:** intact 2.00 · 12 AOTU relay cells
   silenced 0.38 · 2 DNa02 cells silenced 0.00 (dies in 6 moves) · 12 random neurons 2.00 · 2,000 random neurons 2.25.
   **Trained readout:** 19.75 intact vs 16-20 for every lesion including the random controls (12 random: 16.1), i.e. no lesion
