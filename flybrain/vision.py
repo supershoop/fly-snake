@@ -102,9 +102,11 @@ PATHWAY_NODES = [  # (name, regex on annotation type, role) - one node per side.
     ("LC10", r"LC10.*", "object detectors"), ("AOTU", r"AOTU025|AOTU012|AOTU015", "relay cells"), ("DNa02", r"DNa02", "steering"),
     ("LC4", r"LC4", "looming detectors"), ("LPLC2", r"LPLC2", "looming detectors"), ("DNp01", r"DNp01", "giant fiber · escape"),
     ("PVLP", r"PVLP141|PVLP137", "relay cells"), ("DNa01", r"DNa01", "turn away"),
+    ("Sugar", r"LB3.*|claw_tpGRN", "taste"), ("MN9", r"MN9", "feeding"),          # felt when the snake eats
+    ("Heat", r"HRN_.*|TRN_.*", "pain"), ("PPL1", r"PPL1.*", "punishment dopamine"),  # felt when it dies
 ]
 PATHWAY_EDGES = [("LC10", "AOTU", "same"), ("AOTU", "DNa02", "same"), ("LC4", "DNp01", "same"), ("LPLC2", "DNp01", "same"),
-                 ("LC4", "PVLP", "same"), ("PVLP", "DNa01", "opposite")]
+                 ("LC4", "PVLP", "same"), ("PVLP", "DNa01", "opposite"), ("Sugar", "MN9", "same"), ("Heat", "PPL1", "same")]
 
 
 class VisionDisplay:

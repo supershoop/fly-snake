@@ -113,10 +113,13 @@ class Arena:
     def steer_human(self, index: int, heading_name: str):
         self.snakes[index].wanted_heading = HEADING_NAMES.get(heading_name)
 
-    def step(self, actions: dict[int, int]) -> dict[int, float]:
-        """actions: snake index -> LEFT/STRAIGHT/RIGHT for fly snakes (humans use steer_human). Returns rewards."""
+    def step(self, actions: dict[int, int], hold: frozenset[int] | set[int] = frozenset()) -> dict[int, float]:
+        """actions: snake index -> LEFT/STRAIGHT/RIGHT for fly snakes (humans use steer_human). Returns rewards.
+        Snakes in `hold` stay where they are this move (a fly pausing to feed) and get no reward entry."""
         rewards = {}
         for index, snake in enumerate(self.snakes):
+            if index in hold and snake.alive:
+                continue
             if not snake.alive:
                 if self.respawn:
                     self._spawn(index)

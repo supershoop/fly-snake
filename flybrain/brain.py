@@ -67,6 +67,16 @@ class Brain:
         self.pending = torch.zeros((self.delay_steps, *shape), device=self.device)  # ring buffer of delayed input
         self.cursor = 0
 
+    def reset_brains(self, which: torch.Tensor):
+        """bool [B]: put these brains back to rest (a new life starts with a quiet brain). Others keep their state."""
+        which = which.to(self.device)
+        if not bool(which.any()):
+            return
+        self.v[:, which] = V_REST
+        self.g[:, which] = 0.0
+        self.refractory[:, which] = 0
+        self.pending[:, :, which] = 0.0
+
     @torch.no_grad()
     def run(self, ms: float, stim_index: torch.Tensor | None = None, stim_level: torch.Tensor | None = None,
             record_index: torch.Tensor | None = None) -> torch.Tensor:

@@ -40,6 +40,11 @@ LAYOUTS = {  # name -> list of arenas, each (board size, snake kinds, foods)
     "versus": [(16, ("fly", "human"), 2)],
     "arena": [(24, ("fly",) * 8, 5)],
 }
+# What the fly feels when the game says so, as real sensory neurons (regex on annotation `type`). Probed in
+# scripts/event_probe.py: sugar taste drives the feeding motor neuron MN9 (~30 Hz); the heat/humidity receptors light
+# ~6,000 neurons and drive the punishment dopamine neurons PPL1 (~80 Hz). Neither moves DNa02 or the giant fiber.
+EVENT_SOURCES = {"taste": r"LB3.*|claw_tpGRN", "pain": r"HRN_.*|TRN_.*"}
+EVENT_NAMES = list(EVENT_SOURCES)
 LESION_PRESETS = ["LC10.*", "LC4", "LPLC2", "DNa02", "DNa01", "DNp01"]
 
 
@@ -58,7 +63,12 @@ class Experiment:
         self.readout_neurons, self.encoder = readout, "channels"
         self.retina = build_retina(self.connectome)
         self.display = VisionDisplay(self.connectome, self.retina)
-        self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device)])
+        kinds = self.connectome.neurons["type"].fillna("")
+        event_masks = [kinds.str.fullmatch(EVENT_SOURCES[name]).to_numpy() for name in EVENT_NAMES]
+        event_cells = np.flatnonzero(np.any(event_masks, axis=0))
+        self.event_matrix = torch.as_tensor(np.stack([m[event_cells] for m in event_masks], axis=1).astype(np.float32), device=self.device)  # [cells, events]
+        self.events_enabled = True
+        self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device), torch.as_tensor(event_cells, device=self.device)])
         self.steer = {f"{kind}_{side}": torch.as_tensor(np.flatnonzero((readout["type"].eq(kind) & readout["side"].eq(side)).to_numpy()), device=self.device)
                       for kind in STEER_TYPES + ["DNp01"] for side in "LR"}
         self.brains, self.policies = {}, {}
@@ -87,6 +97,7 @@ class Experiment:
         if self.device.type == "cpu":
             torch.set_num_threads(min(os.cpu_count() or 1, 4 if len(self.flies) == 1 else 8))
         self.lesions: list[list[str]] = [[] for _ in self.flies]
+        self.pending_events = np.zeros((len(EVENT_NAMES), len(self.flies)), dtype=np.float32)  # felt during the NEXT brain window
         self.silenced_ids, self.silenced_total = [[] for _ in self.flies], [0] * len(self.flies)
         self.selected, self.history = 0, []
         for brain in self.brains.values():
@@ -154,6 +165,8 @@ class Experiment:
             operator.clear(self)
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
+        if "events" in message:  # taste on eating, pain on dying
+            self.events_enabled = bool(message["events"])
         if message.get("encoder") in ("channels", "retina"):  # 5 on/off channels, or the connectome-derived retinotopic eye
             self.encoder = message["encoder"]
         if message.get("wiring") in ("real", "shuffled"):
@@ -226,23 +239,36 @@ class Experiment:
         if self.encoder == "retina" and self.override is None:
             levels = np.zeros_like(levels)  # the game reaches the brain through the retina only
         shown_to_retina = view if self.encoder == "retina" and self.override is None else np.zeros_like(view)
-        drive = torch.cat([self.channels.levels(torch.as_tensor(levels, device=self.device)), torch.as_tensor(shown_to_retina, device=self.device)])
+        felt, self.pending_events = self.pending_events, np.zeros_like(self.pending_events)
+        feeding = felt[EVENT_NAMES.index("taste")] > 0  # [B] visual input suppresses the feeding response (scripts/event_probe.py), so a
+        if feeding.any() and self.override is None:     # feeding fly pauses: no visual input and no move for this one window
+            levels[:, feeding] = 0.0
+            shown_to_retina = shown_to_retina.copy()
+            shown_to_retina[:, feeding] = 0.0
+        drive = torch.cat([self.channels.levels(torch.as_tensor(levels, device=self.device)), torch.as_tensor(shown_to_retina, device=self.device),
+                           self.event_matrix @ torch.as_tensor(felt, device=self.device)])
         counts = brain.run(WINDOW_MS, self.all_stim_index, drive)
         dn_counts = counts[self.readout_index]
         actions, probabilities = policy.act(dn_counts)
         actions = actions.tolist()
+        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # that fly died: its next life starts with a quiet brain
 
         rewards = np.zeros(len(self.flies), dtype=np.float32)
         eligible = [False] * len(self.flies)
         if self.override is None:
             for a, arena in enumerate(self.arenas):
-                outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a})
+                outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a},
+                                     hold={s for f, (fa, s) in enumerate(self.flies) if fa == a and feeding[f]})
                 for f, (fa, s) in enumerate(self.flies):
                     if fa == a:
                         rewards[f] = outcome.get(s, 0.0)
                         eligible[f] = s in outcome
                         if s in outcome and not arena.snakes[s].alive:
                             self.history.append(arena.snakes[s].last_score)
+                        if self.events_enabled and rewards[f] >= 1:
+                            self.pending_events[EVENT_NAMES.index("taste"), f] = 1.0
+                        if self.events_enabled and rewards[f] <= -1:
+                            self.pending_events[EVENT_NAMES.index("pain"), f] = 1.0
         self.move += 1
         if isinstance(policy, OnlineLearner) and self.override is None:
             self.feedback.remember(self.move, policy, eligible)
@@ -261,9 +287,10 @@ class Experiment:
             "flies": [{"arena": a, "snake": s, "channels": dict(zip(CHANNEL_NAMES, levels[:, f].tolist())), "action": actions[f],
                        "probabilities": [round(p, 3) for p in probabilities[f].tolist()], "reward": float(rewards[f]),
                        "feedbackEligible": eligible[f] and isinstance(policy, OnlineLearner),
+                       "event": next((name for e, name in enumerate(EVENT_NAMES) if felt[e, f] > 0), None),
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
-            "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder,
+            "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder, "events": self.events_enabled,
             "vision": self.display.live(counts[:, self.selected], WINDOW_MS / 1000, view[:, self.selected]),
             "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
             "silencedByFly": {str(f): ids for f, ids in enumerate(self.silenced_ids) if ids},
@@ -272,6 +299,28 @@ class Experiment:
             "activeNeurons": int((rates > 0).sum()), "totalNeurons": self.connectome.n,
             "values": [[int(i), round(float(v), 3)] for i, v in zip(self.visible_ids[firing], shown[firing])],
         }
+
+
+    def event_frame(self, frame: dict) -> dict | None:
+        """The game is holding for a death scene: let the brain feel what is pending (the pain) now, with no game move, so
+        the flash is seen while the fly flails. Returns the same frame with fresh brain activity, or None if nothing is pending."""
+        if not self.pending_events.any():
+            return None
+        brain = self.brain()
+        felt, self.pending_events = self.pending_events, np.zeros_like(self.pending_events)
+        quiet = torch.zeros((len(self.all_stim_index) - self.event_matrix.shape[0], len(self.flies)), device=self.device)
+        counts = brain.run(WINDOW_MS, self.all_stim_index, torch.cat([quiet, self.event_matrix @ torch.as_tensor(felt, device=self.device)]))
+        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # the pain burst is self-sustaining otherwise (~7,000 neurons ring on)
+        seconds = WINDOW_MS / 1000
+        rates = counts[:, self.selected] / seconds
+        shown = (rates[self.visible] / FULL_SCALE_HZ).clamp(max=1.0).cpu().numpy()
+        firing = np.flatnonzero(shown)
+        self.clock += seconds
+        flies = [dict(fly, reward=0.0, event=next((name for e, name in enumerate(EVENT_NAMES) if felt[e, f] > 0), None)) for f, fly in enumerate(frame["flies"])]
+        return dict(frame, time=round(self.clock, 3), flies=flies, eventOnly=True,
+                    vision=self.display.live(counts[:, self.selected], seconds, np.zeros(len(self.retina.index), dtype=np.float32)),
+                    activeNeurons=int((rates > 0).sum()),
+                    values=[[int(i), round(float(v), 3)] for i, v in zip(self.visible_ids[firing], shown[firing])])
 
 
 app = FastAPI()
@@ -303,6 +352,11 @@ async def loop():
             with contextlib.suppress(Exception):
                 await client.send_text(message)
         if experiment.death_hold and frame["flies"][frame["selected"]]["reward"] <= -1:
+            felt = await asyncio.to_thread(experiment.event_frame, frame)  # the pain lands while the death scene plays
+            if felt is not None:
+                for client in list(clients):
+                    with contextlib.suppress(Exception):
+                        await client.send_text(json.dumps(felt))
             await asyncio.sleep(experiment.death_hold)  # let the displayed fly's death scene play out
 
 

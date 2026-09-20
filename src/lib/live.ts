@@ -8,7 +8,9 @@ export type ArenaState = { size: number; foods: [number, number][]; snakes: Snak
 export type FlyState = {
   // danger_* includes immediate collision and losing the route to the moving tail.
   arena: number; snake: number; channels: Record<string, number>; action: 0 | 1 | 2; probabilities: [number, number, number];
-  reward: number; steer: Record<string, number>; lesion: string[]; feedbackEligible?: boolean;
+  reward: number; steer: Record<string, number>; lesion: string[];
+  /** What this fly is feeling during this brain window: it just ate (sugar taste) or just died (heat sensors). */
+  event?: 'taste' | 'pain' | null; feedbackEligible?: boolean;
 };
 export type FeedbackState = {
   positive: number; negative: number;
