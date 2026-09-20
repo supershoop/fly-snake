@@ -1,6 +1,6 @@
 """Lesion table: silence a few neuron types and measure how Snake play breaks, with the live brain in the loop.
 Every lesion runs in the same batch (different brains in one simulation), for both the trained readout and the
-nothing-trained hardwired policy.
+nothing-trained instinct policy (pursuit steering + giant-fiber veto and dodge).
 
 Run: .venv/Scripts/python scripts/lesion_scores.py [--games 8] [--max-moves 300]
 Relay cells were found by path search in the connectome: LC10 -> AOTU025/012/015 -> DNa02 (no direct synapses);
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from flybrain.brain import Brain
 from flybrain.channels import build_channels
 from flybrain.connectome import load_connectome
-from flybrain.readout import HardwiredPolicy, Policy
+from flybrain.readout import InstinctPolicy, Policy
 from flybrain.snake import Snake
 
 parser = argparse.ArgumentParser()
@@ -63,7 +63,10 @@ for row, (label, patterns) in enumerate(LESIONS.items()):
     sizes[label] = int(silenced.sum())
     mask[:, row * args.games:(row + 1) * args.games] = silenced[:, None]
 
-policies = {"trained readout": Policy.load("readout-real", device), "nothing trained": HardwiredPolicy(channels.steer_sign)}
+readout = neurons.loc[channels.readout_index.numpy()]
+groups = {f"{name}_{s}": torch.as_tensor(np.flatnonzero((readout["type"].eq(name) & readout["side"].eq(s)).to_numpy()), device=device)
+          for name in ("DNa02", "DNa01", "DNp01") for s in "LR"}
+policies = {"trained readout": Policy.load("readout-real", device), "nothing trained (instinct)": InstinctPolicy(groups, args.window)}
 results = {}
 for policy_name, policy in policies.items():
     games = [Snake(seed=args.seed_offset + i % args.games) for i in range(batch)]  # the same boards for every lesion
@@ -80,10 +83,10 @@ for policy_name, policy in policies.items():
                 game.step(action)
                 moves[i] += 1
     scores = np.array([g.score for g in games]).reshape(len(LESIONS), args.games)
-    results[policy_name] = (scores.mean(axis=1), moves.reshape(len(LESIONS), args.games).mean(axis=1))
+    results[policy_name] = (scores.mean(axis=1), moves.reshape(len(LESIONS), args.games).mean(axis=1), scores.std(axis=1) / np.sqrt(args.games))
 
 print(f"\n{args.games} games per lesion, max {args.max_moves} moves, live brain in the loop. score = food eaten, moves = survival\n")
-print(f"{'lesion':36s} {'cells':>6s} | " + " | ".join(f"{name:>22s}" for name in policies))
-print(f"{'':36s} {'':>6s} | " + " | ".join(f"{'score':>10s} {'moves':>11s}" for _ in policies))
+print(f"{'lesion':36s} {'cells':>6s} | " + " | ".join(f"{name:>26s}" for name in policies))
+print(f"{'':36s} {'':>6s} | " + " | ".join(f"{'score +- sem':>16s} {'moves':>9s}" for _ in policies))
 for row, label in enumerate(LESIONS):
-    print(f"{label:36s} {sizes[label]:6d} | " + " | ".join(f"{results[p][0][row]:10.2f} {results[p][1][row]:11.0f}" for p in policies))
+    print(f"{label:36s} {sizes[label]:6d} | " + " | ".join(f"{results[p][0][row]:9.2f} +-{results[p][2][row]:4.2f} {results[p][1][row]:9.0f}" for p in policies))
