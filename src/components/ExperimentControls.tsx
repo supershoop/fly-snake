@@ -8,14 +8,15 @@ const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[
   { layout: 'arena', label: 'Arena', detail: '8', hint: 'Eight flies compete on one board. Choose a fly to inspect its brain and score.' },
 ];
 
-type Mode = 'trained' | 'normal' | 'scrambled' | 'training';
+type Mode = 'trained' | 'normal' | 'scrambled' | 'training' | 'training-scrambled';
 const MODES: { mode: Mode; label: string; hint: string; message: object }[] = [
   { mode: 'trained', label: 'Trained', hint: 'Real wiring. A linear readout of the descending neurons, fitted offline, picks the move.', message: { wiring: 'real', policy: 'trained' } },
   { mode: 'normal', label: 'Normal', hint: 'Real wiring, nothing trained. Steering neurons (DNa02, DNa01) pull the snake toward food; the giant fiber (DNp01) vetoes turns into a threat and triggers dodges.', message: { wiring: 'real', policy: 'instinct' } },
   { mode: 'scrambled', label: 'Scrambled', hint: 'Control. Same neurons and synapse strengths, random targets, nothing trained.', message: { wiring: 'shuffled', policy: 'instinct' } },
   { mode: 'training', label: 'Training', hint: 'Real wiring. The readout learns while playing, from reward alone.', message: { wiring: 'real', policy: 'learning' } },
+  { mode: 'training-scrambled', label: 'Training · scrambled', hint: 'Control for Training: the same learning rule on the scrambled wiring. Its curve is drawn next to the real one.', message: { wiring: 'shuffled', policy: 'learning' } },
 ];
-const modeOf = (wiring: Wiring, policy: PolicyName): Mode => wiring === 'shuffled' ? 'scrambled' : policy === 'hardwired' || policy === 'instinct' ? 'normal' : policy === 'learning' ? 'training' : 'trained';
+const modeOf = (wiring: Wiring, policy: PolicyName): Mode => wiring === 'shuffled' ? (policy === 'learning' ? 'training-scrambled' : 'scrambled') : policy === 'hardwired' || policy === 'instinct' ? 'normal' : policy === 'learning' ? 'training' : 'trained';
 
 export function ExperimentControls({ frame, status, paused, pending, send }: {
   frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; send: (message: object) => void;

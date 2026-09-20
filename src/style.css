@@ -336,3 +336,5 @@ footer a { color: #b6c6a7; }
 .chart-grid { stroke: #28332e; stroke-width: 1; } .chart-reference { stroke: #7f8d7c; stroke-width: 1; stroke-dasharray: 4 4; } .chart-crosshair { stroke: #7f8d7c; stroke-width: 1; }
 .chart-tick { fill: #7f8d7c; font-size: 10px; } .chart-value { fill: #e8efe2; font-size: 11px; font-weight: 700; } .chart-empty { padding: 14px 18px; color: #7f8d7c; font-size: 11px; }
 .chart-table { font-size: 11px; color: #a7b59c; } .chart-table table { border-collapse: collapse; margin-top: 6px; } .chart-table th, .chart-table td { text-align: left; padding: 2px 16px 2px 0; }
+
+.chart-legend { display: flex; gap: 16px; font-size: 11px; color: #a7b59c; margin: 6px 0 2px; } .chart-legend i { display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; }
