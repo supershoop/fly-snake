@@ -27,6 +27,8 @@ export type LiveFrame = {
   encoder?: 'channels' | 'retina';
   /** Selected fly: firing rate (Hz) of each pathway node, and the retina cells lit this move as [cell index, drive 0..1]. */
   vision?: { pathway: Record<string, number>; view: [number, number][] };
+  /** Versus layout only. One round = one human life; `fly` is the fly's score in that same round. */
+  leaderboard?: { player: string; top: { name: string; human: number; fly: number; brain: string; when: number }[]; rounds: number; humanWins: number; flyWins: number } | null;
   silenced?: number[]; silencedTotal?: number;
   /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
   silencedByFly?: Record<string, number[]>;

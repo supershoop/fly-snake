@@ -24,6 +24,7 @@ from .operator_control import install_operator
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
+from .leaderboard import Leaderboard, clean_name
 from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
 from .vision import VisionDisplay, VisionUntrained, build_retina
 from .snake import Arena, HEADING_NAMES
@@ -68,6 +69,7 @@ class Experiment:
         event_cells = np.flatnonzero(np.any(event_masks, axis=0))
         self.event_matrix = torch.as_tensor(np.stack([m[event_cells] for m in event_masks], axis=1).astype(np.float32), device=self.device)  # [cells, events]
         self.events_enabled = True
+        self.leaderboard, self.player, self.round_over = Leaderboard(), "anonymous", False
         self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device), torch.as_tensor(event_cells, device=self.device)])
         self.steer = {f"{kind}_{side}": torch.as_tensor(np.flatnonzero((readout["type"].eq(kind) & readout["side"].eq(side)).to_numpy()), device=self.device)
                       for kind in STEER_TYPES + ["DNp01"] for side in "LR"}
@@ -203,6 +205,8 @@ class Experiment:
             self.override = message["stimulate"]
         if "human" in message:
             self.queue_human_move(message["human"])
+        if "player" in message:  # the human's name for the versus leaderboard
+            self.player = clean_name(message["player"])
         if "deathHold" in message:  # the page reports how long its death animation lasts
             self.death_hold = min(5.0, max(0.0, float(message["deathHold"])))
         if "select" in message:
@@ -220,6 +224,13 @@ class Experiment:
                 self.handle(self.inbox.pop(0))
         operator.apply(self)
         audience.apply(self)
+        if self.round_over:  # the human died last move: both snakes start the next round from scratch
+            self.round_over = False
+            for arena in self.arenas:
+                arena.reset()
+            brain_now = self.brains.get(self.wiring)
+            if brain_now is not None:
+                brain_now.reset()
         if human_heading is not None:
             for arena in self.arenas:
                 for index, snake in enumerate(arena.snakes):
@@ -269,6 +280,14 @@ class Experiment:
                             self.pending_events[EVENT_NAMES.index("taste"), f] = 1.0
                         if self.events_enabled and rewards[f] <= -1:
                             self.pending_events[EVENT_NAMES.index("pain"), f] = 1.0
+        if self.layout == "versus" and self.override is None:
+            for arena in self.arenas:
+                humans = [snake for snake in arena.snakes if snake.kind == "human"]
+                if any(not snake.alive for snake in humans):  # one round = one human life
+                    fly_score = max((snake.score if snake.alive else snake.last_score) for snake in arena.snakes if snake.kind == "fly")
+                    mode = "scrambled wiring" if self.wiring == "shuffled" else {"instinct": "normal", "hardwired": "normal", "learning": "training"}.get(self.policy_name, "trained")
+                    self.leaderboard.record(self.player, max(snake.last_score for snake in humans if not snake.alive), fly_score, mode)
+                    self.round_over = True
         self.move += 1
         if isinstance(policy, OnlineLearner) and self.override is None:
             self.feedback.remember(self.move, policy, eligible)
@@ -291,6 +310,7 @@ class Experiment:
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
             "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder, "events": self.events_enabled,
+            "leaderboard": {"player": self.player, "top": self.leaderboard.top(), **self.leaderboard.tally()} if self.layout == "versus" else None,
             "vision": self.display.live(counts[:, self.selected], WINDOW_MS / 1000, view[:, self.selected]),
             "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
             "silencedByFly": {str(f): ids for f, ids in enumerate(self.silenced_ids) if ids},

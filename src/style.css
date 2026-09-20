@@ -319,3 +319,20 @@ footer a { color: #b6c6a7; }
 
 /* What the fly feels: taste on eating, pain on dying */
 .senses .felt-taste { background: #c8e9a8; border-color: #c8e9a8; color: #15200f; } .senses .felt-pain { background: #ff6b40; border-color: #ff6b40; color: #1a0d08; }
+
+/* Human leaderboard (versus layout) */
+.leaderboard { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; }
+.leaderboard input { background: #0f1511; border: 1px solid #34422e; color: inherit; padding: 6px 8px; font: inherit; font-size: 12px; margin-left: 8px; width: 16ch; }
+.leaderboard table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+.leaderboard th, .leaderboard td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid #28332e; }
+.leaderboard th { color: #7f8d7c; font-weight: 400; }
+.leaderboard tr.mine td { color: var(--accent); }
+.leaderboard .round-score { font-size: 20px; } .leaderboard .round-score span { font-weight: 700; }
+@media (max-width: 760px) { .leaderboard { grid-template-columns: 1fr; } }
+
+/* Learning curve (Training mode) */
+.learning-chart { margin: 0; padding: 14px 18px 4px; } .learning-chart figcaption { font-size: 12px; } .learning-chart figcaption small { color: #7f8d7c; margin-left: 8px; }
+.learning-chart svg { display: block; width: 100%; max-width: 820px; height: auto; touch-action: none; }
+.chart-grid { stroke: #28332e; stroke-width: 1; } .chart-reference { stroke: #7f8d7c; stroke-width: 1; stroke-dasharray: 4 4; } .chart-crosshair { stroke: #7f8d7c; stroke-width: 1; }
+.chart-tick { fill: #7f8d7c; font-size: 10px; } .chart-value { fill: #e8efe2; font-size: 11px; font-weight: 700; } .chart-empty { padding: 14px 18px; color: #7f8d7c; font-size: 11px; }
+.chart-table { font-size: 11px; color: #a7b59c; } .chart-table table { border-collapse: collapse; margin-top: 6px; } .chart-table th, .chart-table td { text-align: left; padding: 2px 16px 2px 0; }
