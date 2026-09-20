@@ -22,6 +22,9 @@ export type LiveFrame = {
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
   /** bodyIds of the shown fly's silenced cells that the atlas draws, and how many cells are silenced in total. */
+  encoder?: 'channels' | 'retina';
+  /** Selected fly: firing rate (Hz) of each pathway node, and the retina cells lit this move as [cell index, drive 0..1]. */
+  vision?: { pathway: Record<string, number>; view: [number, number][] };
   silenced?: number[]; silencedTotal?: number;
   /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
   silencedByFly?: Record<string, number[]>;
@@ -45,6 +48,14 @@ export type OperatorState = {
   paused: boolean; move: number; reason: string;
 };
 export type OperatorMessage = { state: OperatorState } | { result: { ok: true; state: OperatorState } | { ok: false; reason: string } };
+/** Sent once with the hello reply. Built by flybrain/vision.py from the connectome. */
+export type VisionStatic = {
+  pathway: { nodes: { id: string; label: string; side: 'L' | 'R'; role: string; bodyIds: number[] }[]; edges: [string, string][] };
+  /** Eye columns as [u, v, side]: u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal). */
+  eye: { columns: [number, number, 'L' | 'R'][] };
+  /** Retina cells as [azimuth deg (negative = left), u, v, side, isFoodDetector]. */
+  retina: { cells: [number, number, number, 'L' | 'R', boolean][]; fieldDeg: [number, number]; threatRange: number };
+};
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 export type PendingCommand = {
   message: string;
@@ -108,6 +119,7 @@ export function useLiveBrain() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
   const [status, setStatus] = useState<LiveStatus>('connecting');
   const [types, setTypes] = useState<NeuronType[]>([]);
+  const [vision, setVision] = useState<VisionStatic | null>(null);
   const [feedbackUrls, setFeedbackUrls] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingCommand | null>(null);
   const asked = useRef(false);
@@ -120,7 +132,7 @@ export function useLiveBrain() {
       ws.onopen = () => setStatus('live');
       ws.onmessage = event => {
         const message = JSON.parse(event.data);
-        if (message.hello) { setTypes(message.hello.types); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
+        if (message.hello) { setTypes(message.hello.types); setVision(message.hello.vision ?? null); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
         if (!asked.current) { asked.current = true; ws.send(JSON.stringify({ hello: true })); }
         setFrame(message);
         setPending(current => {
@@ -145,5 +157,5 @@ export function useLiveBrain() {
     });
     socket.current.send(JSON.stringify(message));
   }, []);
-  return { frame, status, send, types, pending, feedbackUrls };
+  return { frame, status, send, types, pending, feedbackUrls, vision };
 }

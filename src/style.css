@@ -312,3 +312,7 @@ footer a { color: #b6c6a7; }
 .lesion-meters meter { width: 100%; height: 8px; }
 .lesion-lab { grid-template-columns: 1.2fr 1fr 1fr; }
 @media (max-width: 1000px) { .lesion-lab { grid-template-columns: 1fr; } }
+
+/* Signal-path overlay and the fly's-eye view (vision) */
+.pathway-labels{position:absolute;inset:36px 0 33px;pointer-events:none;overflow:hidden;z-index:3;} .pathway-label{position:absolute;left:6px;top:-6px;font-size:9px;color:#7f8d7c;white-space:nowrap;text-shadow:0 0 3px #0c1117,0 0 3px #0c1117;} .pathway-label.firing{color:#fff;font-weight:700;}
+.fly-view svg{display:block;width:100%;max-width:980px;margin:8px auto;} .fly-view-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;} .fly-view-key{font-size:10px;}

@@ -21,7 +21,7 @@ CACHE = DATA / "connectome-cache.npz"
 MIN_SYNAPSES = 5
 INHIBITORY = {"gaba", "glutamate", "histamine"}
 ANNOTATION_COLUMNS = ["bodyId", "type", "instance", "superclass", "class", "subclass", "somaSide",
-                      "rootSide", "flywireType", "entryNerve", "exitNerve", "receptorType", "status"]
+                      "rootSide", "flywireType", "entryNerve", "exitNerve", "receptorType", "assignedOlHex1", "assignedOlHex2", "status"]
 
 
 @dataclass

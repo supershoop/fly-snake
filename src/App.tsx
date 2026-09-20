@@ -5,6 +5,7 @@ import { Environment } from './components/Environment';
 import { Attribution } from './components/Attribution';
 import { LiveTraining } from './components/LiveTraining';
 import { LesionLab } from './components/LesionLab';
+import { FlyView } from './components/FlyView';
 import { ExperimentControls } from './components/ExperimentControls';
 import { Icon } from './components/Icon';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
@@ -35,7 +36,7 @@ export function App() {
   const paused = false;  // pausing was removed from the interface; components still accept the flag
   const [picked, setPicked] = useState<number[]>([]);
   const [deathSeconds, setDeathSeconds] = useState(0);
-  const { frame, status, send, types, pending, feedbackUrls } = useLiveBrain();
+  const { frame, status, send, types, pending, feedbackUrls, vision } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
     void loadAtlas(abort.signal).then(setAtlas).catch(e => { if (!abort.signal.aborted) setError(String(e)); });
@@ -111,7 +112,7 @@ export function App() {
         </section>
         <section className="panel brain-panel" aria-labelledby="brain-title">
           <div className="panel-heading"><h2 id="brain-title"><span className="panel-number">02</span>Brain</h2></div>
-          {atlas ? <BrainScene atlas={atlas} frame={activity} silenced={silenced}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : <><i className="spinner"/>Loading measured anatomy…</>}</p>}
+          {atlas ? <BrainScene atlas={atlas} frame={activity} silenced={silenced} pathway={vision?.pathway} pathwayRates={frame?.vision?.pathway}/> : <p className="loading" role="status">{error ? 'Brain atlas unavailable' : <><i className="spinner"/>Loading measured anatomy…</>}</p>}
           <div className="panel-bottom"><span>{frame ? `${frame.activeNeurons.toLocaleString('en-US')} neurons active · last 100 ms${silenced.length ? ` · ${silenced.length.toLocaleString('en-US')} silenced cells marked` : ''}` : `${atlas?.visibleIds.size.toLocaleString('en-US') ?? '…'} measured somata`}</span><a href={asset('data/brain-atlas/NOTICE.md')} target="_blank" rel="noreferrer">Data <span aria-hidden="true">↗</span></a></div>
         </section>
         <section className="panel fly-panel" aria-labelledby="body-title">
@@ -125,6 +126,7 @@ export function App() {
         {picked.length > 0 && <details className="lab-disclosure" open><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Lesion lab<small>Silence a circuit in the picked {picked.length === 1 ? 'fly' : 'flies'}. Observe what changes.</small></span><span className="disclosure-tag">{picked.length === 1 ? `Fly ${picked[0] + 1}` : `${picked.length} flies`}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><LesionLab frame={frame} status={status} paused={paused} pending={pending} types={types} picked={picked} send={send}/></details>}
         {frame.policy === 'learning' && <details className="lab-disclosure" open><summary><span className="lab-icon"><Icon name="sliders" size={21}/></span><span className="disclosure-title">Live learning<small>Shape the readout with reward and punishment.</small></span><span className="disclosure-tag">Learning active · {frame.learning.games} games · mean {average}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><div className="model-status readout learning"><LiveTraining frame={frame} status={status} paused={paused} pending={pending} feedbackUrls={feedbackUrls} send={send}/></div></details>}
       </section>}
+      <details className="lab-disclosure fly-view-disclosure"><summary><span className="lab-icon"><Icon name="brain" size={21}/></span><span className="disclosure-title">Fly’s-eye view<small>What the fly is shown, mapped onto its own eye, and the option to play through the retina.</small></span><span className="disclosure-tag">{frame?.encoder === 'retina' ? 'Retina encoder on' : 'Optional'}</span><span className="disclosure-chevron" aria-hidden="true">+</span></summary><FlyView frame={frame} vision={vision} send={send}/></details>
       <details className="scientific-scope"><summary>About the simulation, scope & data sources</summary><p><strong>Simulated, never recorded.</strong> A leaky integrate-and-fire model runs on the MaleCNS v1.0 connectome. The game supplies engineered sensory inputs; the descending neurons pick the move. Brain synapses stay fixed; only a readout is ever trained.</p><p>The atlas shows curated cell-body positions, not neurite branches or synaptic connections. Points keep their native proportions. Optic, central and descending classes are drawn; nerve-cord neurons are simulated but not shown.</p><p>Game threats include collisions and loss of a route to the moving tail. This is engineered spatial preprocessing, not evidence of biological route planning. Simulated firing rates over 100 ms are divided by 100 Hz and clamped to [0, 1] for display. The LIF model follows Shiu et al. 2024 with MaleCNS scaling.</p><p>Dataset creators: FlyEM / HHMI Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research. <a href="https://male-cns.janelia.org/download/">MaleCNS data and publication</a>, CC BY 4.0. <a href={asset('data/brain-atlas/manifest.json')}>Source, filters and hashes</a>. This is a modified fly-connectome-template; third-party assets retain their own licenses.</p></details>
     </main>
     <Attribution/>
