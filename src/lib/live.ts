@@ -54,7 +54,8 @@ export type OperatorState = {
 export type OperatorMessage = { state: OperatorState } | { result: { ok: true; state: OperatorState } | { ok: false; reason: string } };
 /** Sent once with the hello reply. Built by flybrain/vision.py from the connectome. */
 export type VisionStatic = {
-  pathway: { nodes: { id: string; label: string; side: 'L' | 'R'; role: string; bodyIds: number[] }[]; edges: [string, string][] };
+  /** Each edge is [from node, to node, pathway]; a node lists every pathway it is part of. */
+  pathway: { nodes: { id: string; label: string; side: 'L' | 'R'; role: string; groups: string[]; bodyIds: number[] }[]; edges: [string, string, string][] };
   /** Eye columns as [u, v, side]: u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal). */
   eye: { columns: [number, number, 'L' | 'R'][] };
   /** Retina cells as [azimuth deg (negative = left), u, v, side, isFoodDetector]. */

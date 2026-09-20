@@ -4,7 +4,15 @@ import type { ActivityFrame } from "../lib/replay";
 import type { Atlas } from "../lib/atlas";
 import type { VisionStatic } from "../lib/live";
 
-const ROLE_COLORS: Record<string, number> = { "object detectors": 0xdfb672, "looming detectors": 0xe07a7a, "relay cells": 0xffffff, steering: 0x84d7ef, "turn away": 0x84d7ef, "giant fiber · escape": 0xe07a7a, "taste": 0xc8e9a8, "feeding": 0xc8e9a8, "pain": 0xff6b40, "punishment dopamine": 0xff6b40 };
+/** Colour follows the pathway. Validated as one palette with the silenced-cell violet (dataviz validator, dark surface: all checks pass). */
+export const PATHWAYS: Record<string, { label: string; color: string; hint: string }> = {
+  pursuit: { label: "Food pursuit", color: "#c98500", hint: "Object detectors LC10 -> AOTU relay cells -> steering neuron DNa02" },
+  escape: { label: "Escape", color: "#d95926", hint: "Looming detectors LC4 and LPLC2 -> giant fiber DNp01" },
+  turnaway: { label: "Turn away", color: "#3987e5", hint: "LC4 -> PVLP relay cells -> DNa01 on the opposite side" },
+  feeding: { label: "Feeding", color: "#199e70", hint: "Sugar taste neurons -> feeding motor neuron MN9 (fires when the snake eats)" },
+  pain: { label: "Pain", color: "#d55181", hint: "Heat sensors -> punishment dopamine neurons PPL1 (fires when the snake dies)" },
+};
+const SILENCED = "#9085e9";
 const FULL_RATE_HZ = 150;
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
@@ -13,8 +21,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
   const signal = useRef(frame);
   const lesion = useRef(silenced);
   const rates = useRef(pathwayRates);
-  const [showPathway, setShowPathway] = useState(true);
-  const labels = useRef<HTMLDivElement>(null);
+  const [choice, setChoice] = useState<string>("all");  // "all" | "off" | one pathway
   const resetView = useRef<(() => void) | null>(null);
   const repaint = useRef<(() => void) | null>(null);
   useEffect(() => { signal.current = frame; lesion.current = silenced; rates.current = pathwayRates; repaint.current?.(); }, [frame, silenced, pathwayRates]);
@@ -26,7 +33,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
     const element = host.current;
     if (!element) return;
     let disposed = false;
-    let paintPathway = () => {}, placeLabels = () => {}, disposePathway = () => {};
+    let paintPathway = () => {}, disposePathway = () => {};
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-3, 3, 2, -2, .01, 100);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -84,16 +91,16 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
       geometry.setAttribute("silenced", new THREE.BufferAttribute(silencedFlag, 1));
       material = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false,
-        uniforms: { pixelRatio: { value: Math.min(window.devicePixelRatio, 2) } },
+        uniforms: { pixelRatio: { value: Math.min(window.devicePixelRatio, 2) }, dim: { value: 1 } },
         vertexShader: `attribute float activity; attribute float silenced; varying float strength; varying float cut; uniform float pixelRatio;
           void main() { strength = activity; cut = silenced; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = (cut > .5 ? 7.0 : 0.9 + strength * 2.0) * pixelRatio; }`,
-        fragmentShader: `varying float strength; varying float cut;
+        fragmentShader: `varying float strength; varying float cut; uniform float dim;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
-          if (cut > .5) { gl_FragColor = vec4(1., .42, .25, r > .34 ? 1. : .55); return; }  // silenced cell: orange ring marker
+          if (cut > .5) { gl_FragColor = vec4(.565, .522, .914, r > .3 ? 1. : .35); return; }  // silenced cell: violet ring, a colour no pathway uses
           vec3 color = mix(vec3(.12,.35,.75), vec3(.2,.95,1.), strength);
           color = mix(color,vec3(1.),smoothstep(.6,1.,strength));
-          gl_FragColor = vec4(color,(.28+.65*strength)*(1.-smoothstep(.18,.5,r))); }`,
+          gl_FragColor = vec4(color,(.28+.65*strength)*(1.-smoothstep(.18,.5,r))*mix(dim,1.,strength)); }`,
       });
       const paint = () => {
         if (disposed || !geometry) return;
@@ -107,53 +114,43 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
       };
       repaint.current = paint;
       anatomy.add(new THREE.Points(geometry, material));
-      if (pathway && showPathway) {
+      const shownGroups = choice === "off" ? [] : choice === "all" ? Object.keys(PATHWAYS) : [choice];
+      material.uniforms.dim.value = choice === "all" || choice === "off" ? 1 : .35;  // a single highlighted pathway stands out from a dimmed brain
+      if (pathway && shownGroups.length) {
         const row = new Map(bodyIds.map((id, i) => [id, i]));
-        const nodes = pathway.nodes.map(node => {
+        const colorOf = (groups: string[]) => new THREE.Color(PATHWAYS[groups.find(g => shownGroups.includes(g)) ?? groups[0]]?.color ?? "#ffffff");
+        const nodes = pathway.nodes.filter(node => node.groups.some(g => shownGroups.includes(g))).map(node => {
           const rows = node.bodyIds.map(id => row.get(id)).filter((i): i is number => i !== undefined);
           const centre = new THREE.Vector3();
           rows.forEach(i => centre.add(new THREE.Vector3(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2])));
-          return { ...node, rows, centre: centre.divideScalar(Math.max(1, rows.length)) };
+          return { ...node, rows, centre: centre.divideScalar(Math.max(1, rows.length)), color: colorOf(node.groups) };
         }).filter(node => node.rows.length);
         const byId = new Map(nodes.map(node => [node.id, node]));
-        const edges = pathway.edges.filter(([from, to]) => byId.has(from) && byId.has(to));
         const cellRows = nodes.flatMap(node => node.rows.map(i => ({ i, node })));
         const cellGeometry = new THREE.BufferGeometry();
         cellGeometry.setAttribute("position", new THREE.Float32BufferAttribute(cellRows.flatMap(({ i }) => [xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]]), 3));
         const cellColors = new Float32Array(cellRows.length * 3);
         cellGeometry.setAttribute("color", new THREE.BufferAttribute(cellColors, 3));
-        const cellMaterial = new THREE.PointsMaterial({ size: 5 * Math.min(window.devicePixelRatio, 2), sizeAttenuation: false, vertexColors: true, transparent: true, opacity: .9, depthTest: false });
-        const lineGeometry = new THREE.BufferGeometry();
-        lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(edges.flatMap(([from, to]) => [...byId.get(from)!.centre.toArray(), ...byId.get(to)!.centre.toArray()]), 3));
-        const lineColors = new Float32Array(edges.length * 6);
-        lineGeometry.setAttribute("color", new THREE.BufferAttribute(lineColors, 3));
-        const lineMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthTest: false });
-        anatomy.add(new THREE.LineSegments(lineGeometry, lineMaterial), new THREE.Points(cellGeometry, cellMaterial));
-        const tags = nodes.map(() => { const tag = document.createElement("div"); tag.className = "pathway-label"; labels.current?.appendChild(tag); return tag; });
+        const cellMaterial = new THREE.PointsMaterial({ size: 6 * Math.min(window.devicePixelRatio, 2), sizeAttenuation: false, vertexColors: true, transparent: true, opacity: .95, depthTest: false });
+        // edges as solid tubes between the two cell groups' centres: WebGL lines are always 1 px wide, tubes are legible
+        const up = new THREE.Vector3(0, 1, 0), tubes = new THREE.Group();
+        const edges = pathway.edges.filter(([from, to, group]) => byId.has(from) && byId.has(to) && shownGroups.includes(group)).map(([from, to, group]) => {
+          const a = byId.get(from)!.centre, b = byId.get(to)!.centre, span = b.clone().sub(a);
+          const tubeMaterial = new THREE.MeshBasicMaterial({ color: PATHWAYS[group]?.color ?? "#ffffff", transparent: true, depthTest: false });
+          const tube = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, span.length(), 8, 1, true), tubeMaterial);
+          tube.position.copy(a).addScaledVector(span, .5);
+          tube.quaternion.setFromUnitVectors(up, span.clone().normalize());
+          tubes.add(tube);
+          return { from, to, tubeMaterial, tube };
+        });
+        anatomy.add(tubes, new THREE.Points(cellGeometry, cellMaterial));
         const strength = (id: string) => Math.sqrt(Math.min(1, (rates.current?.[id] ?? 0) / FULL_RATE_HZ));
         paintPathway = () => {
-          cellRows.forEach(({ node }, c) => new THREE.Color(ROLE_COLORS[node.role] ?? 0xffffff).multiplyScalar(.25 + .75 * strength(node.id)).toArray(cellColors, c * 3));
-          edges.forEach(([from, to], e) => {
-            const level = .12 + .88 * Math.min(strength(from), Math.max(strength(to), .35 * strength(from)));
-            new THREE.Color(0xffffff).multiplyScalar(level).toArray(lineColors, e * 6);
-            new THREE.Color(0xffffff).multiplyScalar(level).toArray(lineColors, e * 6 + 3);
-          });
+          cellRows.forEach(({ node }, c) => node.color.clone().multiplyScalar(.35 + .65 * strength(node.id)).toArray(cellColors, c * 3));
           cellGeometry.getAttribute("color").needsUpdate = true;
-          lineGeometry.getAttribute("color").needsUpdate = true;
-          nodes.forEach((node, n) => {
-            const rate = rates.current?.[node.id] ?? 0;
-            tags[n].textContent = `${node.label} ${node.side}${rate ? ` · ${Math.round(rate)} Hz` : ""}`;
-            tags[n].classList.toggle("firing", rate > 0);
-          });
+          edges.forEach(({ from, to, tubeMaterial }) => { tubeMaterial.opacity = .22 + .78 * Math.min(strength(from), Math.max(strength(to), .35 * strength(from))); });
         };
-        placeLabels = () => {
-          const { width, height } = element.getBoundingClientRect();
-          nodes.forEach((node, n) => {
-            const p = node.centre.clone().applyMatrix4(anatomy.matrixWorld).project(camera);
-            tags[n].style.transform = `translate(${((p.x + 1) / 2) * width}px, ${((1 - p.y) / 2) * height}px)`;
-          });
-        };
-        disposePathway = () => { tags.forEach(tag => tag.remove()); cellGeometry.dispose(); cellMaterial.dispose(); lineGeometry.dispose(); lineMaterial.dispose(); };
+        disposePathway = () => { edges.forEach(({ tube, tubeMaterial }) => { tube.geometry.dispose(); tubeMaterial.dispose(); }); cellGeometry.dispose(); cellMaterial.dispose(); };
       }
       fit();
       paint();
@@ -184,7 +181,7 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
     renderer.domElement.addEventListener("wheel", wheel, { passive: false });
     let frame = 0;
     const animate = () => {
-      if (!document.hidden) { renderer.render(scene, camera); placeLabels(); }
+      if (!document.hidden) renderer.render(scene, camera);
       frame = requestAnimationFrame(animate);
     };
     frame = requestAnimationFrame(animate);
@@ -195,15 +192,18 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates 
       renderer.domElement.removeEventListener("wheel", wheel);
       disposePathway(); geometry?.dispose(); material?.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
-  }, [atlas, pathway, showPathway]);
+  }, [atlas, pathway, choice]);
 
   return <>
     <div className="brain-view-controls">
       <button title="Reset to native XY projection with equal axis scale" onClick={() => resetView.current?.()}>XY view</button>
-      {pathway && <button aria-pressed={showPathway} title="Overlay the food, threat, taste and pain circuits found in the connectome, with live firing rates" onClick={() => setShowPathway(!showPathway)}>Signal paths {showPathway ? "on" : "off"}</button>}
     </div>
-    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
-    <div ref={labels} className="pathway-labels" aria-hidden="true"/>
+    {pathway && <div className="pathway-picker" role="group" aria-label="Signal paths to show">
+      <button aria-pressed={choice === "all"} onClick={() => setChoice("all")}>All paths</button>
+      {Object.entries(PATHWAYS).map(([id, item]) => <button key={id} aria-pressed={choice === id} title={item.hint} onClick={() => setChoice(choice === id ? "all" : id)}><i style={{ background: item.color }}/>{item.label}</button>)}
+      <button aria-pressed={choice === "off"} onClick={() => setChoice("off")}>Off</button>
+    </div>}
+    <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i style={{ borderColor: SILENCED }}/>Silenced cells</span>}</div>
     <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas. Drag to rotate and scroll to zoom.">
       {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : <><i className="spinner"/>Loading anatomy…</>}</span>}
 

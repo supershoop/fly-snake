@@ -105,8 +105,12 @@ PATHWAY_NODES = [  # (name, regex on annotation type, role) - one node per side.
     ("Sugar", r"LB3.*|claw_tpGRN", "taste"), ("MN9", r"MN9", "feeding"),          # felt when the snake eats
     ("Heat", r"HRN_.*|TRN_.*", "pain"), ("PPL1", r"PPL1.*", "punishment dopamine"),  # felt when it dies
 ]
-PATHWAY_EDGES = [("LC10", "AOTU", "same"), ("AOTU", "DNa02", "same"), ("LC4", "DNp01", "same"), ("LPLC2", "DNp01", "same"),
-                 ("LC4", "PVLP", "same"), ("PVLP", "DNa01", "opposite"), ("Sugar", "MN9", "same"), ("Heat", "PPL1", "same")]
+PATHWAY_EDGES = [  # (from, to, same or opposite side, pathway)
+    ("LC10", "AOTU", "same", "pursuit"), ("AOTU", "DNa02", "same", "pursuit"),
+    ("LC4", "DNp01", "same", "escape"), ("LPLC2", "DNp01", "same", "escape"),
+    ("LC4", "PVLP", "same", "turnaway"), ("PVLP", "DNa01", "opposite", "turnaway"),
+    ("Sugar", "MN9", "same", "feeding"), ("Heat", "PPL1", "same", "pain"),
+]
 
 
 class VisionDisplay:
@@ -124,8 +128,9 @@ class VisionDisplay:
         self.static = {
             "pathway": {
                 "nodes": [{"id": node, "label": node.split("_")[0], "side": node[-1], "role": roles[node.split("_")[0]],
+                           "groups": sorted({group for a, b, _, group in PATHWAY_EDGES if node.split("_")[0] in (a, b)}),
                            "bodyIds": neurons["bodyId"].to_numpy()[index].tolist()} for node, index in self.nodes.items()],
-                "edges": [[f"{a}_{s}", f"{b}_{s if relation == 'same' else other[s]}"] for a, b, relation in PATHWAY_EDGES for s in "LR"],
+                "edges": [[f"{a}_{s}", f"{b}_{s if relation == 'same' else other[s]}", group] for a, b, relation, group in PATHWAY_EDGES for s in "LR"],
             },
             # u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal)
             "eye": {"columns": [[int(r.assignedOlHex1 - r.assignedOlHex2), int(r.assignedOlHex1 + r.assignedOlHex2), r.side] for r in columns.itertuples()]},
