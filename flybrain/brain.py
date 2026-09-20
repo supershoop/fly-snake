@@ -119,7 +119,9 @@ class Brain:
             self.g += self.pending[self.cursor]
             if stim_index is not None:
                 events = torch.rand(stim_probability.shape, device=self.device, generator=self.rng) < stim_probability
-                self.g[stim_index] += events * STIM_WEIGHT
+                # index_add_, not g[stim_index] += ...: the server's stimulus list names some cells twice (the game's channels and the
+                # retina encoder both drive LC10/LC4/LPLC2), and an indexed += keeps only ONE write per cell, silently dropping input.
+                self.g.index_add_(0, stim_index, events.to(self.g.dtype) * STIM_WEIGHT)
             active = self.refractory == 0
             self.v += torch.where(active, (self.g - (self.v - V_REST)) * (self.dt / TAU_M), 0.0)
             self.g -= self.g * (self.dt / TAU_SYN)
