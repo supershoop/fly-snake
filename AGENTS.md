@@ -2,7 +2,23 @@
 
 A leaky integrate-and-fire simulation of the whole MaleCNS v1.0 fruit-fly connectome plays Snake.
 Game state -> stimulation of real sensory neuron types -> unmodified connectome -> a linear readout of the
-real descending neurons picks left / straight / right. **Synaptic weights are never trained.**
+real descending neurons picks left / straight / right. **Default modes keep synaptic weights fixed.**
+The user-authorized synaptic experiment (`scripts/train_brain.py`) can adjust bounded strengths of existing
+connections into DNa02/DNa01, preserving connectivity and transmitter signs. Its hardwired movement decoder
+is fixed. Every training move runs the whole continuous brain; no cached response bank or teacher selects actions.
+This is engineered simulated plasticity, not a verified biological fly learning rule. See `docs/SYNAPTIC_LEARNING.md`.
+The additional user-authorized direct-board experiment (`scripts/train_board_brain.py`) encodes the full solo board
+into 1,587 visual neurons and can train 8,082 existing sensory-to-steering-pathway connections (60 bounded gains),
+starting from original weights with the same fixed decoder. Its receptive fields are engineered, not natural vision.
+It is separate from the web demo's 24-pattern encoder. See `docs/DIRECT_BOARD_LEARNING.md`.
+Direct-board pilot: 24 generations, 384 scored training games, 16,260 recorded brain moves including validation.
+On 32 new games: original full-board 0.21875 vs internally trained 2.0625 mean food (paired 95% gain interval
+[1.28125, 2.40625]). Old 24-pattern/original-brain reference scored 2.59375; trained food-only input 2.5625.
+All five tested conditions had 32/32 collisions. Full-board input has NOT shown an advantage over those simpler
+inputs. The selected generation-20 model is `models/brain-board-direct.npz`, separate from the web app.
+First synaptic pilot: 12 generations, 3,092 continuous-brain moves, 751 of 1,737 eligible connections changed.
+Held-out 16-game fixed-decoder comparison: original 2.50 vs trained 2.9375 mean food, both 16 collisions.
+Paired 95% bootstrap interval for the +0.4375 difference is [-0.0625, 1.1875]: inconclusive, not reliable improvement.
 
 This file is the shared brief for every teammate and every coding agent (Claude Code reads it through `CLAUDE.md`).
 
@@ -38,6 +54,7 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 | `flybrain/brain.py` | Batched torch LIF (Shiu et al. 2024 parameters), state `[N, B]` = B independent brains. `run(ms, stim_index, stim_level, record_index)` -> spike counts. `set_lesion(mask [N] or [N,B])`, `resize(batch)`, `shuffled=True` = control |
 | `flybrain/cpu_synapses.py` | Faster single-brain CPU propagation: multiply only firing presynaptic columns; full weights and time steps preserved. Batched/GPU simulation retains its original kernel. |
 | `flybrain/channels.py` | Senses: food = LC10 L/R, threat = LC4 L/R, threat ahead = LPLC2. Readout = all 1,314 descending neurons |
+| `flybrain/board_encoder.py`, `flybrain/board_experiment.py`, `scripts/train_board_brain.py` | Separate full-board experiment: engineered spatial input, bounded internal-synapse CMA-ES, fixed steering, continuous whole-brain games; see `docs/DIRECT_BOARD_LEARNING.md` |
 | `flybrain/snake.py` | `Arena`: any number of fly/human snakes on one board, relative actions, rewards, egocentric encoder (24 situations); legacy sensing available via `lookahead=False` |
 | `flybrain/navigation.py` | Threat observations include loss of a route to the moving tail after a move, accounting for growth; never overrides actions |
 | `flybrain/training.py`, `flybrain/response_bank.py` | Learn target preferences from long-game food scores; collect real DN responses with state carried between inputs |
@@ -90,6 +107,15 @@ brain. The crash preset is a deliberately straight-biased decoder. The others lo
 applies between moves, keeps brain simulation and boards running, expires old feedback, and trains a copy
 in Training. Release restores the cached host policy. Explicit host model/mode choices clear the override.
 
+`{"synaptic": true}` loads the validated `models/brain-synaptic.npz`, selects real wiring and a fixed hardwired
+readout, resets boards/brain state and feedback, clears sensory overrides, retains lesions, and resumes play.
+`{"synaptic": false}` restores the original brain and trained readout. Choosing shuffled wiring, an instinct/trained/learning
+readout, or a live-learning reset exits the synaptic experiment first. Explicit `synaptic` takes precedence over
+policy/wiring/learning keys in the same message. Invalid checkpoints report an error without switching.
+Frames include `synaptic {available: bool, active: {generation, connections, changedConnections, groups, decoder}|null, error: string|null}`.
+The saved brain is frozen during web play; the existing Live learning panel still trains only an external readout.
+When paused, include `"paused": false` with a synaptic selection so the queued command is processed; the UI does this.
+
 Client -> server, any combination of keys in one message (applied between moves):
 | Key | Meaning |
 |---|---|
@@ -99,7 +125,8 @@ Client -> server, any combination of keys in one message (applied between moves)
 | `{"feedback": value, "fly": i\|null, "move": moveId}` | reward/punishment in [-1, 1], excluding zero, for a displayed decision (learning policy only); omitted/null fly targets all eligible flies; omitted move uses latest saved decision. The last 64 decisions are retained; experiment/model changes invalidate them. Receipts report applied or rejected feedback. |
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
 | `{"encoder": "channels"\|"retina"}` | how the game reaches the brain: 5 on/off channels (default), or the connectome-derived retinotopic eye (`flybrain/vision.py`; trained policy = `models/readout-vision.npz`, instinct and hardwired also work) |
-| `{"events": bool}` | taste on eating / pain on dying (default on), see Findings |
+| `{"events": bool}` | legacy master switch for game-event sensory cues (default on); preserves selected cues but clears pending stimuli |
+| `{"eventStimuli": {"food": "positive"\|"negative"\|"none", "death": "positive"\|"negative"\|"none"}}` | choose the sensory cue for each event; either key may be updated alone. Positive = sugar-taste neurons (`LB3.*`, `claw_tpGRN`); negative = heat/humidity neurons (`HRN_.*`, `TRN_.*`); none = no added event cue. Defaults: food positive, death negative. Applies to every fly, in all modes, for this server session. Valid updates enable event cues and discard pending old cues. Invalid updates leave choices intact. Readout rewards and game scores are independent and unchanged. |
 | `{"visible": bool}` | sent by the page on connect and whenever its tab is shown or hidden. The simulation idles while every connected page is hidden; clients that never send it count as watching |
 | `{"deathHold": seconds}` | sent by the page: how long its death animation lasts; the game holds that long after the displayed fly dies (0-5 s) |
 | `{"sensor": {"danger_ahead": 0.8}}` | external input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz (built for the dropped hardware track; still works) |
@@ -111,11 +138,12 @@ Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `ar
 (per fly: `channels`, `action`, `probabilities`, `reward`, `feedbackEligible`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
 `move` (monotonically increasing decision ID), `values` (selected fly's brain activity by bodyId),
 `learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`,
-`encoder`, `events`, `thermal {gpu, state: ok|slow|cooling|off, slowAt, pauseAt}` (GPU temperature and what the guard is doing),
+`encoder`, `events`, `eventStimuli {food, death}` (effective sensory-cue choices), `eventStimulusError` (null or validation message),
+`thermal {gpu, state: ok|slow|cooling|off, slowAt, pauseAt}` (GPU temperature and what the guard is doing),
 `silenced` / `silencedTotal` / `silencedByFly` (bodyIds of silenced, drawn cells), `vision {pathway: {node: Hz}, view}`,
 `stepRate` (moves/second actually achieved over the period since the previous frame was sent, including any pacing
 sleep; `null` on the first frame after an idle gap, since there is no prior send to measure from);
-per fly also `event` (`"taste"`, `"pain"` or null = what it feels during this window). A frame with `eventOnly: true` repeats the
+per fly also `event` (`"taste"`, `"pain"` or null = the selected cue delivered during this window; either food or death can trigger either cue). A frame with `eventOnly: true` repeats the
 game state with fresh brain activity: the pain burst shown while the death hold runs. The one-off `{"hello": true}` reply carries
 `types` (lesion search), `feedbackUrls` and `vision` (static: pathway nodes/edges by bodyId, eye columns, retina cells; `VisionStatic` in `live.ts`).
 Feedback `last` is null, `{status: "applied", value, fly, move, targets[]}`, or `{status: "rejected", reason}`.
@@ -212,7 +240,7 @@ or a move cutting off the path to the snake's moving tail. This is an engineered
   ~7,000 neurons and PPL1 ~144 Hz ring on indefinitely after 100 ms of input, so the dead fly's brain is reset to rest (a new
   life starts quiet). Reward dopamine (PAM) does NOT respond to sugar here: say "tastes the food", never "feels rewarded".
 - With DNa02 silenced the trained readout still steers (it uses other descending neurons); the hardwired policy cannot.
-- Known weakness to answer: the game still shows only 24 distinct situations. Target preferences start from a heuristic and are
+- Known weakness to answer: the default web demo still shows only 24 distinct situations. Target preferences start from a heuristic and are
   optimized on full-game scores; the encoder now computes tail connectivity. This is engineered spatial preprocessing, not evidence
   that a biological fly plans routes. "The readout plays, the brain relabels" remains a fair criticism.
 - Everything the viewer shows is *simulated / predicted* activity, never measured. Say so.

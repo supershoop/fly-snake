@@ -1,0 +1,657 @@
+{
+  "source": "Reanalysis of existing saved artifacts; no new brain simulations or training",
+  "input_planes": {
+    "food_left_near": {
+      "raw_nonzero": [
+        1,
+        388,
+        3
+      ],
+      "drive_sum": [
+        56.5,
+        442.801,
+        0.776
+      ],
+      "mean_drive": [
+        0.107,
+        0.837,
+        0.001
+      ],
+      "saturated_1": [
+        1,
+        432,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        847.5,
+        6642.0,
+        11.6
+      ]
+    },
+    "food_left_far": {
+      "raw_nonzero": [
+        1,
+        388,
+        3
+      ],
+      "drive_sum": [
+        55.707,
+        442.801,
+        0.776
+      ],
+      "mean_drive": [
+        0.105,
+        0.837,
+        0.001
+      ],
+      "saturated_1": [
+        1,
+        432,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        835.6,
+        6642.0,
+        11.6
+      ]
+    },
+    "food_right_near": {
+      "raw_nonzero": [
+        1,
+        388,
+        3
+      ],
+      "drive_sum": [
+        56.5,
+        442.801,
+        0.776
+      ],
+      "mean_drive": [
+        0.107,
+        0.837,
+        0.001
+      ],
+      "saturated_1": [
+        1,
+        432,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        847.5,
+        6642.0,
+        11.6
+      ]
+    },
+    "food_ahead": {
+      "raw_nonzero": [
+        1,
+        388,
+        3
+      ],
+      "drive_sum": [
+        56.416,
+        442.801,
+        0.776
+      ],
+      "mean_drive": [
+        0.107,
+        0.837,
+        0.001
+      ],
+      "saturated_1": [
+        1,
+        432,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        846.2,
+        6642.0,
+        11.6
+      ]
+    },
+    "different_body": {
+      "raw_nonzero": [
+        1,
+        390,
+        5
+      ],
+      "drive_sum": [
+        56.5,
+        446.607,
+        1.323
+      ],
+      "mean_drive": [
+        0.107,
+        0.844,
+        0.003
+      ],
+      "saturated_1": [
+        1,
+        435,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        847.5,
+        6699.1,
+        19.8
+      ]
+    },
+    "near_left_wall": {
+      "raw_nonzero": [
+        1,
+        388,
+        3
+      ],
+      "drive_sum": [
+        56.5,
+        442.526,
+        0.776
+      ],
+      "mean_drive": [
+        0.107,
+        0.837,
+        0.001
+      ],
+      "saturated_1": [
+        1,
+        432,
+        0
+      ],
+      "expected_external_events_per_100ms": [
+        847.5,
+        6637.9,
+        11.6
+      ]
+    }
+  },
+  "actions": {
+    "trained_no_sensory_input": {
+      "moves": 214,
+      "left_straight_right": [
+        0,
+        214,
+        0
+      ],
+      "percent": [
+        0.0,
+        100.0,
+        0.0
+      ],
+      "games_with_no_turn": 32,
+      "mean_food": 0.09375,
+      "mean_moves": 6.6875
+    },
+    "trained": {
+      "moves": 930,
+      "left_straight_right": [
+        385,
+        120,
+        425
+      ],
+      "percent": [
+        41.4,
+        12.9,
+        45.7
+      ],
+      "games_with_no_turn": 1,
+      "mean_food": 2.0625,
+      "mean_moves": 29.0625
+    },
+    "original": {
+      "moves": 250,
+      "left_straight_right": [
+        8,
+        237,
+        5
+      ],
+      "percent": [
+        3.2,
+        94.8,
+        2.0
+      ],
+      "games_with_no_turn": 20,
+      "mean_food": 0.21875,
+      "mean_moves": 7.8125
+    },
+    "original_24_pattern_reference": {
+      "moves": 805,
+      "left_straight_right": [
+        402,
+        11,
+        392
+      ],
+      "percent": [
+        49.9,
+        1.4,
+        48.7
+      ],
+      "games_with_no_turn": 0,
+      "mean_food": 2.59375,
+      "mean_moves": 25.15625
+    },
+    "trained_food_only": {
+      "moves": 988,
+      "left_straight_right": [
+        407,
+        133,
+        448
+      ],
+      "percent": [
+        41.2,
+        13.5,
+        45.3
+      ],
+      "games_with_no_turn": 0,
+      "mean_food": 2.5625,
+      "mean_moves": 30.875
+    }
+  },
+  "parameters": {
+    "groups": [
+      {
+        "label": "motor:AOTU:excitatory->DNa01:L",
+        "gain": 1.0457,
+        "connections": 1
+      },
+      {
+        "label": "motor:AOTU:excitatory->DNa01:R",
+        "gain": 0.2694,
+        "connections": 1
+      },
+      {
+        "label": "motor:AOTU:excitatory->DNa02:L",
+        "gain": 1.7293,
+        "connections": 27
+      },
+      {
+        "label": "motor:AOTU:excitatory->DNa02:R",
+        "gain": 0.2513,
+        "connections": 22
+      },
+      {
+        "label": "motor:AOTU:inhibitory->DNa01:L",
+        "gain": 0.5437,
+        "connections": 1
+      },
+      {
+        "label": "motor:AOTU:inhibitory->DNa01:R",
+        "gain": 0.3576,
+        "connections": 2
+      },
+      {
+        "label": "motor:AOTU:inhibitory->DNa02:L",
+        "gain": 1.756,
+        "connections": 1
+      },
+      {
+        "label": "motor:AOTU:inhibitory->DNa02:R",
+        "gain": 3.9782,
+        "connections": 1
+      },
+      {
+        "label": "motor:PVLP:excitatory->DNa01:L",
+        "gain": 1.121,
+        "connections": 6
+      },
+      {
+        "label": "motor:PVLP:excitatory->DNa01:R",
+        "gain": 1.5075,
+        "connections": 5
+      },
+      {
+        "label": "motor:PVLP:excitatory->DNa02:L",
+        "gain": 2.1859,
+        "connections": 21
+      },
+      {
+        "label": "motor:PVLP:excitatory->DNa02:R",
+        "gain": 0.4045,
+        "connections": 18
+      },
+      {
+        "label": "motor:PVLP:inhibitory->DNa02:L",
+        "gain": 0.9169,
+        "connections": 9
+      },
+      {
+        "label": "motor:PVLP:inhibitory->DNa02:R",
+        "gain": 0.7629,
+        "connections": 11
+      },
+      {
+        "label": "motor:other:excitatory->DNa01:L",
+        "gain": 0.6669,
+        "connections": 150
+      },
+      {
+        "label": "motor:other:excitatory->DNa01:R",
+        "gain": 1.6972,
+        "connections": 154
+      },
+      {
+        "label": "motor:other:excitatory->DNa02:L",
+        "gain": 3.9766,
+        "connections": 323
+      },
+      {
+        "label": "motor:other:excitatory->DNa02:R",
+        "gain": 3.4925,
+        "connections": 343
+      },
+      {
+        "label": "motor:other:inhibitory->DNa01:L",
+        "gain": 1.5304,
+        "connections": 138
+      },
+      {
+        "label": "motor:other:inhibitory->DNa01:R",
+        "gain": 0.5516,
+        "connections": 143
+      },
+      {
+        "label": "motor:other:inhibitory->DNa02:L",
+        "gain": 0.4743,
+        "connections": 176
+      },
+      {
+        "label": "motor:other:inhibitory->DNa02:R",
+        "gain": 0.5923,
+        "connections": 184
+      },
+      {
+        "label": "sensory:0:center:ahead:+->L",
+        "gain": 3.258,
+        "connections": 154
+      },
+      {
+        "label": "sensory:0:center:ahead:+->R",
+        "gain": 0.308,
+        "connections": 205
+      },
+      {
+        "label": "sensory:0:center:behind:+->L",
+        "gain": 1.1531,
+        "connections": 143
+      },
+      {
+        "label": "sensory:0:center:behind:+->R",
+        "gain": 0.6386,
+        "connections": 193
+      },
+      {
+        "label": "sensory:0:center:near:+->L",
+        "gain": 0.3726,
+        "connections": 50
+      },
+      {
+        "label": "sensory:0:center:near:+->R",
+        "gain": 1.9136,
+        "connections": 59
+      },
+      {
+        "label": "sensory:0:left:ahead:+->L",
+        "gain": 1.7239,
+        "connections": 852
+      },
+      {
+        "label": "sensory:0:left:ahead:+->R",
+        "gain": 3.9887,
+        "connections": 11
+      },
+      {
+        "label": "sensory:0:left:behind:+->L",
+        "gain": 0.3947,
+        "connections": 857
+      },
+      {
+        "label": "sensory:0:left:behind:+->R",
+        "gain": 0.456,
+        "connections": 14
+      },
+      {
+        "label": "sensory:0:left:near:+->L",
+        "gain": 2.8734,
+        "connections": 254
+      },
+      {
+        "label": "sensory:0:left:near:+->R",
+        "gain": 2.3647,
+        "connections": 9
+      },
+      {
+        "label": "sensory:0:right:ahead:+->R",
+        "gain": 2.3757,
+        "connections": 1134
+      },
+      {
+        "label": "sensory:0:right:behind:+->R",
+        "gain": 0.275,
+        "connections": 1170
+      },
+      {
+        "label": "sensory:0:right:near:+->R",
+        "gain": 2.9757,
+        "connections": 400
+      },
+      {
+        "label": "sensory:1:center:ahead:+->L",
+        "gain": 0.7284,
+        "connections": 28
+      },
+      {
+        "label": "sensory:1:center:ahead:+->R",
+        "gain": 0.6027,
+        "connections": 36
+      },
+      {
+        "label": "sensory:1:center:behind:+->L",
+        "gain": 1.1229,
+        "connections": 36
+      },
+      {
+        "label": "sensory:1:center:behind:+->R",
+        "gain": 0.8272,
+        "connections": 29
+      },
+      {
+        "label": "sensory:1:center:near:+->L",
+        "gain": 0.3451,
+        "connections": 22
+      },
+      {
+        "label": "sensory:1:center:near:+->R",
+        "gain": 1.045,
+        "connections": 24
+      },
+      {
+        "label": "sensory:1:left:ahead:+->L",
+        "gain": 1.1587,
+        "connections": 87
+      },
+      {
+        "label": "sensory:1:left:behind:+->L",
+        "gain": 0.337,
+        "connections": 91
+      },
+      {
+        "label": "sensory:1:left:behind:+->M",
+        "gain": 0.7843,
+        "connections": 1
+      },
+      {
+        "label": "sensory:1:left:near:+->L",
+        "gain": 0.587,
+        "connections": 66
+      },
+      {
+        "label": "sensory:1:right:ahead:+->R",
+        "gain": 1.1111,
+        "connections": 75
+      },
+      {
+        "label": "sensory:1:right:behind:+->R",
+        "gain": 0.3508,
+        "connections": 69
+      },
+      {
+        "label": "sensory:1:right:near:+->R",
+        "gain": 0.4324,
+        "connections": 82
+      },
+      {
+        "label": "sensory:2:center:ahead:+->L",
+        "gain": 1.7364,
+        "connections": 4
+      },
+      {
+        "label": "sensory:2:center:ahead:+->R",
+        "gain": 3.1351,
+        "connections": 16
+      },
+      {
+        "label": "sensory:2:center:behind:+->L",
+        "gain": 0.252,
+        "connections": 6
+      },
+      {
+        "label": "sensory:2:center:behind:+->R",
+        "gain": 1.5132,
+        "connections": 15
+      },
+      {
+        "label": "sensory:2:left:ahead:+->L",
+        "gain": 0.4617,
+        "connections": 13
+      },
+      {
+        "label": "sensory:2:left:behind:+->L",
+        "gain": 0.4349,
+        "connections": 12
+      },
+      {
+        "label": "sensory:2:left:near:+->L",
+        "gain": 3.2233,
+        "connections": 7
+      },
+      {
+        "label": "sensory:2:right:ahead:+->R",
+        "gain": 2.1077,
+        "connections": 49
+      },
+      {
+        "label": "sensory:2:right:behind:+->R",
+        "gain": 2.4955,
+        "connections": 53
+      },
+      {
+        "label": "sensory:2:right:near:+->R",
+        "gain": 0.3945,
+        "connections": 19
+      }
+    ],
+    "gain_min": 0.2513326431063254,
+    "gain_max": 3.98874658714807,
+    "groups_below_0_3": 4,
+    "groups_above_3_5": 3,
+    "group_count": 60
+  },
+  "retinotopy_annotations": [
+    {
+      "type": "LC10*",
+      "traced": 960,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "LC4",
+      "traced": 126,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "LPLC2",
+      "traced": 185,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "LC12",
+      "traced": 498,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "Tm3",
+      "traced": 2054,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "T4*",
+      "traced": 6865,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "T5*",
+      "traced": 6720,
+      "both_hex_coordinates": 0,
+      "coordinates_by_side": {}
+    },
+    {
+      "type": "Mi1",
+      "traced": 1773,
+      "both_hex_coordinates": 1762,
+      "coordinates_by_side": {
+        "R": 887,
+        "L": 875
+      }
+    },
+    {
+      "type": "Tm1",
+      "traced": 1777,
+      "both_hex_coordinates": 1767,
+      "coordinates_by_side": {
+        "R": 890,
+        "L": 877
+      }
+    }
+  ],
+  "body_order_resolution": {
+    "adjacent_rank_drive_change": 0.005208333333333333,
+    "expected_external_event_difference_per_100ms": 0.078125,
+    "scope": "One stimulated neuron/window, not a bound on all downstream or temporal information"
+  },
+  "audit_metadata": {
+    "date_utc": "2026-09-20",
+    "new_brain_simulations": 0,
+    "new_training_runs": 0,
+    "stimulus_rate_hz": 150,
+    "window_ms": 100,
+    "input_plane_calculation": "Current BoardEncoder.encode on scripts/probe_board_encoder.py cases; placeholder index arrays because plane arithmetic is independent of neuron identity. No synthetic neuronal activity.",
+    "expected_event_calculation": "sum(normalized drives) * 150 Hz * 0.1 seconds; these are external injected events, not neural spike counts."
+  },
+  "source_sha256": {
+    "flybrain/board_encoder.py": "f82802a4f037d61c6741f5d814b91d2ceab5a98e15a8e535381aacbf089d7f55",
+    "flybrain/brain.py": "9d93b605207b4d691f401ee6c909a48ce29742e0c709e0c907fa1a5dc33f7966",
+    "scripts/probe_board_encoder.py": "1c9ee148fa45e10652183b7f588f3278ec95325546719c78b61e97968d7924c5",
+    "models/brain-board-test.json": "aec90d2cd79c8ba8c0c24cd0b580f9d28dce3ded4d8616f4eefc5e4a627329c5",
+    "models/brain-board-probe.json": "f91a570e3d0cb2efbcaf244e567fa1e2543048e0fa17256540dea4773cf3a01b",
+    "models/brain-board-direct.npz": "7a9cd82db482e8a570a420733cdec26fcdf262e6be986755ccf12b7f763b2c74",
+    "data/body-annotations-male-cns-v1.0-minconf-0.5.feather": "2177e246113e4cfbf1e7772ec37c6da1955ff22e8063d0b1f833101f99a9a3b2",
+    "flybrain/readout.py": "b406c1644716fb508f8b4b16f16155514ef69c6f00a4f3b2767c23a3e3681fef"
+  },
+  "feedback_update_algebra_check": {
+    "scope": "Toy feature vectors checked against current OnlineLearner.learn; no neural simulation, game, saved model change, or performance claim",
+    "results": {
+      "single_saved_decision": {
+        "maximum_absolute_logit_error": 3.725290298461914e-09,
+        "within_1e_6": true
+      },
+      "three_saved_decisions": {
+        "maximum_absolute_logit_error": 3.725290298461914e-09,
+        "within_1e_6": true
+      }
+    }
+  }
+}

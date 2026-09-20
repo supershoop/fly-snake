@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 from flybrain.feedback import HumanFeedback
+from flybrain.event_stimuli import EventStimuli
 from flybrain.leaderboard import Leaderboard
 from flybrain.readout import OnlineLearner, Policy
 from flybrain.server import Experiment
@@ -123,6 +124,8 @@ def small_experiment():
     experiment = Experiment.__new__(Experiment)
     experiment.device = torch.device("cpu")
     experiment.brains = {"real": Mock()}
+    experiment.synaptic_parameters = experiment.synaptic_metadata = experiment.synaptic_sites = None
+    experiment.synaptic_error = None
     experiment.brains["real"].run.side_effect = lambda *args: torch.tensor([[4.], [0.]])
     experiment.policies = {("learning", "real"): OnlineLearner(2),
                            ("trained", "real"): Policy(torch.ones(3, 2), torch.zeros(3))}
@@ -143,6 +146,7 @@ def small_experiment():
     experiment.steer = {}
     experiment.death_hold, experiment.step_rate = 0.0, 0.0
     experiment.encoder, experiment.events_enabled = "channels", False  # events/vision are exercised in their own tests
+    experiment.event_stimuli, experiment.event_stimulus_error = EventStimuli(), None
     experiment.leaderboard, experiment.player, experiment.round_over = Leaderboard(Path(tempfile.mkdtemp()) / "leaderboard.json"), "anonymous", False
     experiment.retina = SimpleNamespace(index=np.zeros(0, dtype=int), render=lambda arena, snake_index=0: np.zeros(0, dtype=np.float32))
     experiment.display = SimpleNamespace(live=lambda counts, seconds, drive: {"pathway": {}, "view": []})

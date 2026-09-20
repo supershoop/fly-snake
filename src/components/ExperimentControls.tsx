@@ -24,8 +24,8 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
   frame: LiveFrame | null; status: LiveStatus; paused: boolean; pending: PendingCommand | null; send: (message: object) => void;
 }) {
   const layout = pending?.layout ?? frame?.layout;
-  const mode = frame ? modeOf(pending?.wiring ?? frame.wiring, pending?.policy ?? frame.policy) : null;
-  const selectedMode = mode ?? 'trained';
+  const mode = frame && !frame.synaptic?.active ? modeOf(pending?.wiring ?? frame.wiring, pending?.policy ?? frame.policy) : null;
+  const selectedMode = frame?.synaptic?.active ? 'synaptic' : mode ?? 'trained';
   const ready = status === 'live' && !!frame && !paused;
 
   // The slider sets a cap the host can move freely; the server reports what it actually
@@ -55,6 +55,7 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
           const choice = MODES.find(option => option.mode === event.target.value);
           if (choice) send(choice.message);
         }}>
+          {frame?.synaptic?.active && <option value="synaptic" disabled>Trained synapses · fixed readout</option>}
           {MODES.map(({ mode: option, label }) => <option key={option} value={option}>{label}</option>)}
         </select>
       </div>
@@ -70,6 +71,6 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
         <small className="step-rate-actual">{ready && achieved ? `${achieved.toFixed(2)} moves/s actual` : '\u00A0'}</small>
       </div>
     </div>
-    <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : frame ? `${LAYOUTS.find(item => item.layout === layout)?.hint} ${MODES.find(item => item.mode === mode)?.hint}` : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">Synaptic weights stay fixed</span></div>
+    <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : frame ? `${LAYOUTS.find(item => item.layout === layout)?.hint} ${frame.synaptic?.active ? 'Selected synapses were trained offline. The steering readout stays fixed.' : MODES.find(item => item.mode === mode)?.hint}` : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">{frame?.synaptic?.active ? 'Trained synapses · fixed readout' : 'Synaptic weights stay fixed'}</span></div>
   </section>;
 }

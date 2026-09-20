@@ -48,9 +48,10 @@ def default_device() -> torch.device:
 class Brain:
     def __init__(self, connectome: Connectome, batch: int = 1, dt: float = 0.5, shuffled: bool = False,
                  weight_scale: float = MALECNS_WEIGHT_SCALE, device: str | None = None, seed: int = 0,
-                 shuffle_seed: int = SHUFFLE_SEED, cpu_sparse: bool = True):
+                 shuffle_seed: int = SHUFFLE_SEED, cpu_sparse: bool = True, compiled: bool = False):
         self.device = torch.device(device) if device is not None else default_device()
         self.n, self.batch, self.dt = connectome.n, batch, dt
+        self.shuffled = shuffled
         self.rng = torch.Generator(device=self.device).manual_seed(seed)
         post = connectome.post
         if shuffled:  # control: same neurons, same out-degrees and weights, random targets.
@@ -60,6 +61,9 @@ class Brain:
                                           (self.n, self.n)).coalesce()
         self.weights = weights.to_sparse_csr().to(self.device)
         self.cpu_sparse = self.device.type == "cpu" and cpu_sparse
+        self.compiled = compiled
+        if compiled and (self.device.type != "cpu" or batch != 1):
+            raise ValueError("Compiled LIF currently requires one CPU brain")
         self.cpu_synapses = None
         self.delay_steps = max(1, round(T_DELAY / dt))
         self.refractory_steps = max(1, round(T_REFRACTORY / dt))
@@ -68,6 +72,8 @@ class Brain:
 
     def resize(self, batch: int):
         """Change how many independent brains run in parallel (clears state and lesions)."""
+        if self.compiled and batch != 1:
+            raise ValueError("Compiled LIF currently requires one CPU brain")
         self.batch, self.silenced = batch, None
         self.reset()
 
@@ -106,6 +112,9 @@ class Brain:
         returns spike counts, float [N, B], or [R, B] if record_index is given
         """
         steps = round(ms / self.dt)
+        if self.compiled:
+            from .cpu_lif import run
+            return run(self, steps, stim_index, stim_level, record_index)
         # Single-brain CPU play benefits from skipping inactive columns. Keep
         # the original batched/GPU kernel for training and swarm layouts.
         if self.cpu_sparse and self.batch == 1 and self.cpu_synapses is None:
