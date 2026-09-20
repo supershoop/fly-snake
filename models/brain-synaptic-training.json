@@ -1,0 +1,167 @@
+{
+  "generation": 12,
+  "config": {
+    "train_games": 2,
+    "max_moves": 100,
+    "validation_games": 4,
+    "validation_moves": 150,
+    "validate_every": 4,
+    "seed": 20260920
+  },
+  "connectome_sha256": "8b230e4089480b5ee4452124658769390d488dfac343755bb4c107131b1ce0c9",
+  "baseline_validation": {
+    "games": [
+      {
+        "seed": 200000,
+        "brain_seed": 1200000,
+        "food": 2,
+        "moves": 27,
+        "reward": 2.8000000000000007,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200001,
+        "brain_seed": 1200001,
+        "food": 5,
+        "moves": 47,
+        "reward": 7.299999999999995,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200002,
+        "brain_seed": 1200002,
+        "food": 3,
+        "moves": 29,
+        "reward": 3.9000000000000004,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200003,
+        "brain_seed": 1200003,
+        "food": 2,
+        "moves": 33,
+        "reward": 3.2,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      }
+    ],
+    "mean_food": 3.0,
+    "mean_reward": 4.299999999999999,
+    "collisions": 4,
+    "alive_at_limit": 0
+  },
+  "best_validation": {
+    "games": [
+      {
+        "seed": 200000,
+        "brain_seed": 1200000,
+        "food": 2,
+        "moves": 23,
+        "reward": 2.8000000000000007,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200001,
+        "brain_seed": 1200001,
+        "food": 10,
+        "moves": 94,
+        "reward": 16.299999999999986,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200002,
+        "brain_seed": 1200002,
+        "food": 2,
+        "moves": 19,
+        "reward": 2.4000000000000004,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      },
+      {
+        "seed": 200003,
+        "brain_seed": 1200003,
+        "food": 2,
+        "moves": 29,
+        "reward": 3.2,
+        "end_reason": "collision",
+        "alive_at_limit": false
+      }
+    ],
+    "mean_food": 4.0,
+    "mean_reward": 6.174999999999996,
+    "collisions": 4,
+    "alive_at_limit": 0
+  },
+  "best_generation": 8,
+  "elapsed_seconds": 900.2416983000003,
+  "simulated_moves": 3092,
+  "device": "cpu",
+  "compiled": true,
+  "history": [
+    {
+      "generation": 1,
+      "train_mean_food": 4.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 2,
+      "train_mean_food": 4.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 3,
+      "train_mean_food": 4.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 4,
+      "train_mean_food": 4.5,
+      "validation_mean_food": 3.25
+    },
+    {
+      "generation": 5,
+      "train_mean_food": 3.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 6,
+      "train_mean_food": 3.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 7,
+      "train_mean_food": 3.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 8,
+      "train_mean_food": 3.5,
+      "validation_mean_food": 4.0
+    },
+    {
+      "generation": 9,
+      "train_mean_food": 5.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 10,
+      "train_mean_food": 5.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 11,
+      "train_mean_food": 5.5,
+      "validation_mean_food": null
+    },
+    {
+      "generation": 12,
+      "train_mean_food": 5.5,
+      "validation_mean_food": 4.0
+    }
+  ]
+}

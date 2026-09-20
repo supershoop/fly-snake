@@ -1,3 +1,5 @@
-# Optional: compiled offline rollouts for scripts/train_evolution.py.
+# Optional: compiled rollouts and full CPU LIF for train_evolution.py / train_brain.py.
 # The existing PyTorch / NumPy / pandas dependencies are still required.
 numba>=0.61,<0.68
+# Direct-board internal-synapse evolution (optimizer state records the version).
+cma>=4.4,<5

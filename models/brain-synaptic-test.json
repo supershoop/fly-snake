@@ -1,0 +1,389 @@
+{
+  "complete": true,
+  "evaluation": "continuous whole connectome; fixed hardwired readout; paired unseen seeds",
+  "model_sha256": "8a1e9775bd28c99a4708587d1d2360ddff3992b9d825db55160add6d6a89da1d",
+  "metadata": {
+    "generation": 8,
+    "validation": {
+      "games": [
+        {
+          "seed": 200000,
+          "brain_seed": 1200000,
+          "food": 2,
+          "moves": 23,
+          "reward": 2.8000000000000007,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 200001,
+          "brain_seed": 1200001,
+          "food": 10,
+          "moves": 94,
+          "reward": 16.299999999999986,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 200002,
+          "brain_seed": 1200002,
+          "food": 2,
+          "moves": 19,
+          "reward": 2.4000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 200003,
+          "brain_seed": 1200003,
+          "food": 2,
+          "moves": 29,
+          "reward": 3.2,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        }
+      ],
+      "mean_food": 4.0,
+      "mean_reward": 6.174999999999996,
+      "collisions": 4,
+      "alive_at_limit": 0
+    },
+    "version": 1,
+    "connectome_sha256": "8b230e4089480b5ee4452124658769390d488dfac343755bb4c107131b1ce0c9",
+    "decoder": {
+      "kind": "hardwired",
+      "types": [
+        "DNa02",
+        "DNa01"
+      ],
+      "threshold": 2.0
+    },
+    "dt_ms": 0.5,
+    "window_ms": 100.0,
+    "weight_scale": 0.4,
+    "method": "reward-driven search of existing synaptic strengths; fixed hardwired decoder"
+  },
+  "device": "cpu",
+  "compiled": true,
+  "max_moves": 250,
+  "results": {
+    "unmodified": {
+      "games": [
+        {
+          "seed": 300000,
+          "brain_seed": 1300000,
+          "food": 5,
+          "moves": 50,
+          "reward": 7.199999999999996,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300001,
+          "brain_seed": 1300001,
+          "food": 3,
+          "moves": 11,
+          "reward": 2.7,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300002,
+          "brain_seed": 1300002,
+          "food": 2,
+          "moves": 36,
+          "reward": 3.1000000000000014,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300003,
+          "brain_seed": 1300003,
+          "food": 3,
+          "moves": 33,
+          "reward": 4.1000000000000005,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300004,
+          "brain_seed": 1300004,
+          "food": 2,
+          "moves": 24,
+          "reward": 2.9000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300005,
+          "brain_seed": 1300005,
+          "food": 2,
+          "moves": 8,
+          "reward": 1.5000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300006,
+          "brain_seed": 1300006,
+          "food": 2,
+          "moves": 27,
+          "reward": 3.200000000000001,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300007,
+          "brain_seed": 1300007,
+          "food": 3,
+          "moves": 18,
+          "reward": 2.8000000000000003,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300008,
+          "brain_seed": 1300008,
+          "food": 3,
+          "moves": 36,
+          "reward": 4.2,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300009,
+          "brain_seed": 1300009,
+          "food": 2,
+          "moves": 21,
+          "reward": 2.4000000000000012,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300010,
+          "brain_seed": 1300010,
+          "food": 2,
+          "moves": 30,
+          "reward": 2.7000000000000006,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300011,
+          "brain_seed": 1300011,
+          "food": 2,
+          "moves": 34,
+          "reward": 2.7000000000000006,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300012,
+          "brain_seed": 1300012,
+          "food": 2,
+          "moves": 21,
+          "reward": 2.6000000000000005,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300013,
+          "brain_seed": 1300013,
+          "food": 2,
+          "moves": 17,
+          "reward": 2.4000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300014,
+          "brain_seed": 1300014,
+          "food": 3,
+          "moves": 41,
+          "reward": 4.5,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300015,
+          "brain_seed": 1300015,
+          "food": 2,
+          "moves": 22,
+          "reward": 2.3000000000000003,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        }
+      ],
+      "mean_food": 2.5,
+      "mean_reward": 3.2062500000000003,
+      "collisions": 16,
+      "alive_at_limit": 0
+    },
+    "trained_synapses": {
+      "games": [
+        {
+          "seed": 300000,
+          "brain_seed": 1300000,
+          "food": 5,
+          "moves": 57,
+          "reward": 7.699999999999994,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300001,
+          "brain_seed": 1300001,
+          "food": 3,
+          "moves": 11,
+          "reward": 2.7,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300002,
+          "brain_seed": 1300002,
+          "food": 2,
+          "moves": 33,
+          "reward": 3.200000000000001,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300003,
+          "brain_seed": 1300003,
+          "food": 5,
+          "moves": 51,
+          "reward": 7.699999999999994,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300004,
+          "brain_seed": 1300004,
+          "food": 2,
+          "moves": 24,
+          "reward": 2.9000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300005,
+          "brain_seed": 1300005,
+          "food": 2,
+          "moves": 8,
+          "reward": 1.5000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300006,
+          "brain_seed": 1300006,
+          "food": 2,
+          "moves": 27,
+          "reward": 3.200000000000001,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300007,
+          "brain_seed": 1300007,
+          "food": 4,
+          "moves": 36,
+          "reward": 5.499999999999995,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300008,
+          "brain_seed": 1300008,
+          "food": 8,
+          "moves": 81,
+          "reward": 12.199999999999989,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300009,
+          "brain_seed": 1300009,
+          "food": 2,
+          "moves": 23,
+          "reward": 2.4000000000000012,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300010,
+          "brain_seed": 1300010,
+          "food": 2,
+          "moves": 29,
+          "reward": 2.8000000000000007,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300011,
+          "brain_seed": 1300011,
+          "food": 2,
+          "moves": 30,
+          "reward": 2.7000000000000006,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300012,
+          "brain_seed": 1300012,
+          "food": 2,
+          "moves": 21,
+          "reward": 2.6000000000000005,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300013,
+          "brain_seed": 1300013,
+          "food": 2,
+          "moves": 17,
+          "reward": 2.4000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300014,
+          "brain_seed": 1300014,
+          "food": 2,
+          "moves": 30,
+          "reward": 3.1000000000000014,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        },
+        {
+          "seed": 300015,
+          "brain_seed": 1300015,
+          "food": 2,
+          "moves": 21,
+          "reward": 2.4000000000000004,
+          "end_reason": "collision",
+          "alive_at_limit": false
+        }
+      ],
+      "mean_food": 2.9375,
+      "mean_reward": 4.062499999999999,
+      "collisions": 16,
+      "alive_at_limit": 0
+    }
+  },
+  "elapsed_seconds": 283.1973295000498,
+  "paired_comparison": {
+    "mean_food_difference": 0.4375,
+    "bootstrap_95_percent_interval": [
+      -0.0625,
+      1.1875
+    ],
+    "bootstrap_seed": 741,
+    "bootstrap_samples": 20000,
+    "wins": 3,
+    "ties": 12,
+    "losses": 1,
+    "limitation": "Conditional on one trained checkpoint and 16 test seeds; excludes training-run uncertainty. Interval includes zero."
+  }
+}

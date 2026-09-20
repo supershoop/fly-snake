@@ -1,56 +1,80 @@
 <p align="center">
-  <img src="assets/preview.svg" alt="fly-connectome-template: real MaleCNS anatomy and a starter for your own experiment" width="760">
+  <img src="assets/preview.svg" alt="Measured cell-body positions of the MaleCNS fruit-fly brain" width="760">
 </p>
 
-<p align="center">
-  A browser workbench for building your own fly-connectome experiments.
-  Real anatomy, a replaceable environment, and model outputs mapped by neuron ID.
-</p>
+# Fly Snake
 
-<p align="center">
-  <a href="https://github.com/cobanov/fly-connectome-template/actions/workflows/ci.yml"><img alt="build" src="https://github.com/cobanov/fly-connectome-template/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Node.js" src="https://img.shields.io/badge/node-%E2%89%A522.18-527fa3?labelColor=151b22">
-  <img alt="anatomy" src="https://img.shields.io/badge/anatomy-MaleCNS_v1.0-527fa3?labelColor=151b22">
-  <a href="LICENSE"><img alt="licence: attribution required" src="https://img.shields.io/badge/licence-attribution_required-527fa3?labelColor=151b22"></a>
-</p>
+**A real fruit fly's complete brain wiring, simulated and untrained, plays Snake. Silence two cells and watch what it loses.**
 
----
+Fly Snake simulates all 165,000 neurons and 6 million connections of the MaleCNS v1.0 fly connectome and lets it play
+Snake in the browser, with the brain lighting up next to the game. The game reaches the fly through real sensory cell
+types and the move comes from its real output neurons. **The brain's connections are never changed or trained.**
+Snake is not the point. It is how we test what the wiring does.
 
-Start with a fly body and measured brain coordinates already on screen. Replace
-the environment, connect your own model and inspect its outputs against the
-same MaleCNS neuron IDs. Training and inference stay in your own stack; the
-browser handles the experiment view.
+## What we found
 
-- **Real anatomy.** 124,289 classified brain soma positions from MaleCNS v1.0,
-  rendered without stretching the axes, plus the anatomical Flybody mesh.
-- **Replaceable parts.** Environment on the left, brain above the body on the
-  right. Each is a separate React component; the layout stacks on mobile.
-- **An explicit model boundary.** JSON replay with timestamps, body IDs,
-  normalized values and declared provenance. No neural activity is invented
-  when no model is connected.
-- **A small web stack.** React, TypeScript, Three.js and Vite. No required
-  account, backend, database or hosting provider.
+| | Result |
+|---|---|
+| **Nothing trained, real wiring** | The fly's own steering neuron (DNa02) and escape neuron (giant fiber, DNp01) play the game: 5.9 food and 63 moves per game |
+| **Silence the 2 steering cells** | 1.1 food, but it survives 170 moves: it wanders and still dodges walls |
+| **Silence the 2 escape cells** | It still goes for food, and dies after 25 moves instead of 63 |
+| **Silence 2,000 random cells** | No change (6.4 food) |
+| **Scramble the wiring** (same neurons, same connection strengths, random targets) | 0.00, 0.00 and 0.09 food in three scrambles, against 2.28 for the real wiring under the same earlier rule |
+| **Found by searching the wiring** | Food signals reach the steering neuron only through about a dozen relay cells in the anterior optic tubercle, the pursuit pathway known from real flies. Silencing them: 0.8 food |
+| **Learning from reward** (a readout of under 4,000 numbers; the brain stays fixed) | Real wiring 22.0 food over ten runs, scrambled wiring 5.1 |
 
-The code is **source-available with mandatory attribution** in your web UI and
-repository README. Your own models and weights can remain private. See
-[Licence](#licence) before reusing.
+Every number comes from a script in `scripts/` and is recorded, with its caveats, in [AGENTS.md](AGENTS.md).
 
-## Start
+**What is honest to say.** Everything on screen is simulated activity, never recorded from a fly. The neuron model is
+heavily simplified (after Shiu et al. 2024). We chose how game events become sensory input, one global synapse-strength
+factor, and three thresholds in the untrained rule. A *trained* readout also plays through a scrambled brain (14.3
+against 18.8), so the claims rest on the untrained mode, the lesions and the scrambled control. In Training only the
+small readout learns.
 
-[Use this template][generate] to create your repository, then clone it.
-With Node.js **22.18+**:
+## On the page
+
+- **Layouts:** one fly, a swarm of sixteen independent brains, or you against the fly.
+- **Brain modes:** Trained · **Normal** (nothing trained) · Scrambled (the control) · Training (a blank readout learns
+  from reward; the audience can reward and punish moves from their phones by QR code).
+- **Lesion lab:** click boards to pick flies, then silence the steering neuron, the giant fiber or the food relay cells.
+  Silenced cells are ringed in the brain view.
+- **Pathways:** the brain view draws the circuits carrying food pursuit, escape, turning away, feeding and pain, and
+  pulses them with the game.
+- When the snake eats, the fly's sugar-taste neurons fire and its feeding motor neuron responds. When it dies, its heat
+  sensors fire and the punishment dopamine neurons respond.
+
+## Run it
+
+Python 3.12, Node.js 22.18+, and an NVIDIA GPU if you want more than one fly at a comfortable speed (CPU works).
 
 ```sh
-npm ci
-npm run dev
+# one-time: environment and about 565 MB of connectome data (into data/, gitignored)
+uv venv --python 3.12 && uv pip install torch --index-url https://download.pytorch.org/whl/cu126
+uv pip install pandas pyarrow numpy scipy fastapi "uvicorn[standard]"
+B=https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome; mkdir -p data; cd data
+curl -LO $B/body-annotations-male-cns-v1.0-minconf-0.5.feather -O $B/body-neurotransmitters-male-cns-v1.0.feather \
+     -O $B/connectome-weights-male-cns-v1.0-minconf-0.5-traced-only.feather; cd ..
+
+# every time: two terminals
+.venv/Scripts/python -m uvicorn flybrain.server:app --port 8000 --host 0.0.0.0   # brain server (macOS/Linux: .venv/bin/python)
+npm ci && npm run dev                                                             # the page; open the address it prints
 ```
 
-Open the URL printed by Vite. The example stimulus starts automatically;
-the brain initially shows anatomy only. **Load synthetic example**, then
-**Play**, demonstrates the output pipeline with clearly labeled test values.
-**Load model JSON** reads your own replay locally in the browser.
+The first start takes about a minute while the connectome loads. Trained readouts are committed in `models/`, so nothing
+needs training before the demo. The simulation idles while the page's tab is hidden, and a thermal guard slows it down
+if the GPU runs hot (`FLY_THERMAL_GUARD=on|slow|off`, see [AGENTS.md](AGENTS.md)).
 
-## Make it yours
+## Read more
+
+- [Demo run sheet](docs/DEMO-SCRIPT.md): what to click and what to say, in four minutes.
+- [Pitch notes and judge questions](docs/PITCH.md): the numbers you can defend and the answers to the hard questions.
+- [AGENTS.md](AGENTS.md): file map, WebSocket protocol, every finding with its caveats.
+- [Survival training](docs/TRAINING.md) and [evolved readouts](docs/EVOLUTION.md).
+
+Built with [fly-connectome-template][repo] by [Mert Cobanov][author], modified. Connectome: MaleCNS v1.0, FlyEM / HHMI
+Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google Research, CC BY 4.0. See [Licence](#licence).
+
+## Training, audience phones and the operator page
 
 This fork also includes the Fly Snake simulator and trained descending-neuron
 readout. See [survival training and measured results](docs/TRAINING.md) for the
@@ -60,6 +84,18 @@ For reward-driven training over thousands of generations, see
 [evolution training and independent evaluation](docs/EVOLUTION.md). The trainer
 starts random linear readouts, evolves them from game scores, and keeps the
 connectome fixed. The saved experimental winner has not replaced the demo model.
+
+For the experiment that learns **inside the fly brain**, see
+[synaptic learning](docs/SYNAPTIC_LEARNING.md). It adjusts existing steering
+connections from game rewards while keeping the movement readout fixed.
+Every move runs the continuous whole connectome. The web app can select the
+saved experimental brain separately from the original readout-based modes.
+
+For full-board sensory input instead of the 24-pattern encoder, see
+[direct-board learning](docs/DIRECT_BOARD_LEARNING.md). This separate experiment
+starts from the original brain, maps the board into 1,587 visual neurons, and
+evolves bounded internal synaptic strengths with a fixed movement decoder.
+Its saved model is not automatically loaded into the web demo.
 
 **Retrain existing readout** starts live learning from a copy of the trained
 model; **Start blank** starts over. Positive and negative

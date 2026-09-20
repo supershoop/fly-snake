@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "moves": 24,
+  "neurons": 165122,
+  "connections": 6235682,
+  "comparison": "All neuron spike counts exactly equal; full state within 1e-5; includes changed and restored synapses",
+  "original_seconds": 13.935141599853523,
+  "compiled_seconds": 2.897400100133382,
+  "warm_speedup": 4.809533070428215,
+  "connectome_sha256": "8b230e4089480b5ee4452124658769390d488dfac343755bb4c107131b1ce0c9",
+  "encoder": {
+    "kind": "direct-board-v1",
+    "size": 12,
+    "width": 23,
+    "planes": [
+      "food",
+      "occupied_or_outside",
+      "body_order_and_idle"
+    ],
+    "food_sigma": 3.0,
+    "obstacle_sigma": 0.8,
+    "gain": 1.0,
+    "assignment": "engineered spatial positions; not biological retinotopy",
+    "input_neurons": 1587,
+    "sha256": "86dc19914f067ac55eaf5175d40ff75b2f93c86b16f13041c7991ebc68386e55"
+  }
+}
