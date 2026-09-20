@@ -34,6 +34,7 @@ export function App() {
   const [error, setError] = useState('');
   const paused = false;  // pausing was removed from the interface; components still accept the flag
   const [picked, setPicked] = useState<number[]>([]);
+  const [deathSeconds, setDeathSeconds] = useState(0);
   const { frame, status, send, types, pending, feedbackUrls } = useLiveBrain();
   useEffect(() => {
     const abort = new AbortController();
@@ -41,6 +42,7 @@ export function App() {
     return () => abort.abort();
   }, []);
   const layout = frame?.layout;
+  useEffect(() => { if (status === 'live' && deathSeconds > 0) send({ deathHold: deathSeconds }); }, [status, deathSeconds, send]);
   const fly = frame?.flies[frame.selected];
   const flyCommand = useMemo<FlyCommand | null>(() => {
     if (!frame || !fly) return null;
@@ -114,7 +116,7 @@ export function App() {
         </section>
         <section className="panel fly-panel" aria-labelledby="body-title">
           <div className="panel-heading"><h2 id="body-title"><span className="panel-number">03</span>The organism</h2><span className="panel-meta">Drosophila</span></div>
-          <FlyScene command={flyCommand}/>
+          <FlyScene command={flyCommand} onDeathSceneLength={setDeathSeconds}/>
           <div className="body-caption"><em>Drosophila melanogaster</em><span>Also known as the common fruit fly.</span></div>
           <div className="panel-bottom"><span>live fruit fly reaction:</span><span>Drag to rotate · Scroll to zoom</span></div>
         </section>

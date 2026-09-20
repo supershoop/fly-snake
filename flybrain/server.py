@@ -62,6 +62,7 @@ class Experiment:
         self.sensor, self.sensor_seen = {}, 0.0
         self.feedback, self.move = HumanFeedback(), 0
         self.history: list[float] = []  # score of every finished fly game, oldest first
+        self.death_hold = 0.0           # seconds the game holds still after the displayed fly dies (set by the page)
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
         # Human movement arrives on the event-loop thread while tick() runs in a
         # worker. Consume only one heading per tick so a quick pair of turns is
@@ -181,6 +182,8 @@ class Experiment:
             self.override = message["stimulate"]
         if "human" in message:
             self.queue_human_move(message["human"])
+        if "deathHold" in message:  # the page reports how long its death animation lasts
+            self.death_hold = min(5.0, max(0.0, float(message["deathHold"])))
         if "select" in message:
             self.selected = int(message["select"]) % len(self.flies)
         if "paused" in message:
@@ -282,6 +285,8 @@ async def loop():
         for client in list(clients):
             with contextlib.suppress(Exception):
                 await client.send_text(message)
+        if experiment.death_hold and frame["flies"][frame["selected"]]["reward"] <= -1:
+            await asyncio.sleep(experiment.death_hold)  # let the displayed fly's death scene play out
 
 
 @app.on_event("startup")

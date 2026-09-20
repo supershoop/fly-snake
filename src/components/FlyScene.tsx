@@ -18,8 +18,17 @@ const flyColors: Record<string, number> = {
   brown: 0x52351f,
 };
 
+/** Default camera direction. The model's head points along +X and its left side is -Z, so viewing from +X / -Z shows a
+ *  three-quarter view with the head toward the left of the screen. Drag still orbits freely. */
+const DEFAULT_VIEW = [1, .65, -1.5] as const;
+
+/** How many times the pain clip plays when the snake dies. */
+const DEATH_SCENE_REPEATS = 2;
+
 /** Displays the rigged fly and plays a GLB animation for each game input. */
-export function FlyScene({ command }: { command: FlyCommand | null }) {
+export function FlyScene({ command, onDeathSceneLength }: { command: FlyCommand | null; onDeathSceneLength?: (seconds: number) => void }) {
+  const reportLength = useRef(onDeathSceneLength);
+  reportLength.current = onDeathSceneLength;
   const host = useRef<HTMLDivElement>(null);
   const play = useRef<(animation: FlyAnimation) => void>(() => {});
   const requestedAnimation = useRef<FlyAnimation | null>(null);
@@ -55,7 +64,7 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
     controls.zoomSpeed = .8;
     scene.add(new THREE.HemisphereLight(0xffedda, 0x18202a, 3));
     const light = new THREE.DirectionalLight(0xffdfb2, 4);
-    light.position.set(2, 3, 4);
+    light.position.set(2, 3, -4);  // same side as the default camera, so the visible flank is lit
     scene.add(light);
 
     const resize = () => {
@@ -63,7 +72,7 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
       renderer.setSize(Math.max(1, width), Math.max(1, height), false);
       camera.aspect = width / Math.max(1, height);
       const fov = Math.min(camera.fov * Math.PI / 180, 2 * Math.atan(Math.tan(camera.fov * Math.PI / 360) * camera.aspect));
-      camera.position.set(1, .65, 1.5).normalize().multiplyScalar(radius / Math.sin(fov / 2) * .55);
+      camera.position.set(...DEFAULT_VIEW).normalize().multiplyScalar(radius / Math.sin(fov / 2) * .55);
       camera.lookAt(0, 0, 0);
       camera.updateProjectionMatrix();
       controls.update();
@@ -117,7 +126,9 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
         if (animation !== 'win') return animation;
         return ['win', 'winning', 'victory'].find(name => actions.has(name));
       };
+      let dying = false;  // the death scene plays out in full: later moves cannot interrupt it
       const trigger = (animation: FlyAnimation) => {
+        if (dying && animation !== 'pain') return;
         mixer!.stopAllAction();
         if (animation === 'idle') {
           playIdle();
@@ -130,18 +141,23 @@ export function FlyScene({ command }: { command: FlyCommand | null }) {
           return;
         }
         action.reset();
-        action.setLoop(THREE.LoopOnce, 1);
+        dying = animation === 'pain';
+        if (dying) action.setLoop(THREE.LoopRepeat, DEATH_SCENE_REPEATS);
+        else action.setLoop(THREE.LoopOnce, 1);
         action.clampWhenFinished = false;
         action.play();
       };
       const resumeIdle = (event: THREE.AnimationMixerEventMap['finished']) => {
         if (event.action !== idle) {
+          dying = false;
           mixer!.stopAllAction();
           playIdle();
         }
       };
       mixer.addEventListener('finished', resumeIdle);
       play.current = trigger;
+      const pain = actions.get('pain');
+      if (pain) reportLength.current?.(pain.getClip().duration * DEATH_SCENE_REPEATS);
       if (requestedAnimation.current) trigger(requestedAnimation.current);
       else playIdle();
       resize();
