@@ -19,14 +19,15 @@ function Board({ arena, label, onSnake }: { arena: ArenaState; label: string; on
     {arena.snakes.map((snake, s) => {
       const [headX, headY] = snake.body[0] ?? [0, 0];
       const bodyColor = snake.kind === 'human' ? 'var(--player-snake)' : 'var(--mauve)';
-      const headColor = bodyColor;
+      const headAsset = snake.kind === 'human' ? '/player-head.svg' : '/fly-head.svg';
       const points = snake.body.map(([x, y]) => `${(x + .5) * CELL},${(y + .5) * CELL}`).join(' ');
       const interactive = onSnake && snake.kind === 'fly';
       const opacity = snake.alive ? 1 : .3;
+      const headCenterX = (headX + .5) * CELL, headCenterY = (headY + .5) * CELL;
       return <g key={s} onClick={interactive ? () => onSnake(s) : undefined} style={interactive ? { cursor: 'pointer' } : undefined} opacity={opacity}>
         {/* One rounded stroke makes adjacent grid cells read as a single moving body. */}
         {snake.body.length > 1 && <polyline points={points} fill="none" stroke={bodyColor} strokeWidth={CELL - 4} strokeLinecap="round" strokeLinejoin="round"/>}
-        <circle cx={(headX + .5) * CELL} cy={(headY + .5) * CELL} r={(CELL - 4) / 2} fill={headColor} stroke="var(--cream)" strokeWidth="1.4"/>
+        <image href={headAsset} x={headX * CELL} y={headY * CELL} width={CELL} height={CELL} transform={`rotate(${snake.heading * 90} ${headCenterX} ${headCenterY})`} preserveAspectRatio="xMidYMid meet" pointerEvents="none" aria-hidden="true"/>
         {snake.body.length > 1 && <polyline points={points} fill="none" stroke="var(--cream)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".2"/>}
       </g>;
     })}
