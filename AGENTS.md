@@ -1,4 +1,5 @@
 # Fly Snake
+# snake flies
 
 A leaky integrate-and-fire simulation of the whole MaleCNS v1.0 fruit-fly connectome plays Snake.
 Game state -> stimulation of real sensory neuron types -> unmodified connectome -> a linear readout of the

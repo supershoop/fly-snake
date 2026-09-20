@@ -101,7 +101,7 @@ export function App() {
   return <>
     <a className="skip-link" href="#experiment">Skip to experiment</a>
     <header className="site-header">
-      <a className="brand" href="#" aria-label="Fly Snake home"><span className="brand-mark"><Icon name="snake" size={23}/></span><span>fly<span className="brand-divider">/</span>snake</span></a>
+      <a className="brand" href="#" aria-label="snake flies home"><span className="brand-mark"><img className="brand-logo" src="/snakeflies.svg" alt="" /></span><span>snake flies</span></a>
       <span className="header-caption">A tiny brain experiment that plays Snake</span>
       <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
     </header>

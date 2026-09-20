@@ -76,7 +76,7 @@ Janelia, University of Cambridge, MRC Laboratory of Molecular Biology and Google
 
 ## Training, audience phones and the operator page
 
-This fork also includes the Fly Snake simulator and trained descending-neuron
+This fork also includes the snake flies simulator and trained descending-neuron
 readout. See [survival training and measured results](docs/TRAINING.md) for the
 training command, comparison with the original model, and remaining limitations.
 

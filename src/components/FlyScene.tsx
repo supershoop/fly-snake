@@ -119,6 +119,7 @@ export function FlyScene({ command, onDeathSceneLength }: { command: FlyCommand 
       const playIdle = () => {
         if (!idle) return;
         idle.reset();
+        idle.setEffectiveTimeScale(1);
         idle.setLoop(THREE.LoopRepeat, Infinity);
         idle.clampWhenFinished = false;
         idle.play();
@@ -128,8 +129,12 @@ export function FlyScene({ command, onDeathSceneLength }: { command: FlyCommand 
         return ['win', 'winning', 'victory'].find(name => actions.has(name));
       };
       let dying = false;  // the death scene plays out in full: later moves cannot interrupt it
+      let winning = false;
       const trigger = (animation: FlyAnimation) => {
         if (dying && animation !== 'pain') return;
+        // Eating food emits a normal game frame almost immediately after the
+        // reward frame. Keep the celebration alive until its own clip ends.
+        if (winning && animation !== 'pain') return;
         mixer!.stopAllAction();
         if (animation === 'idle') {
           playIdle();
@@ -143,14 +148,17 @@ export function FlyScene({ command, onDeathSceneLength }: { command: FlyCommand 
         }
         action.reset();
         dying = animation === 'pain';
+        winning = animation === 'win';
         if (dying) action.setLoop(THREE.LoopRepeat, DEATH_SCENE_REPEATS);
         else action.setLoop(THREE.LoopOnce, 1);
+        action.setEffectiveTimeScale(winning ? 2 : 1);
         action.clampWhenFinished = false;
         action.play();
       };
       const resumeIdle = (event: THREE.AnimationMixerEventMap['finished']) => {
         if (event.action !== idle) {
           dying = false;
+          winning = false;
           mixer!.stopAllAction();
           playIdle();
         }

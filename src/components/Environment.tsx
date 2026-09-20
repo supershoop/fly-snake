@@ -59,7 +59,7 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
     </div>
     <div className={`board-stage ${many ? 'swarm-stage' : ''}`}>
       <div className="game-window">
-        <div className="game-window-bar"><span>fly_snake.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
+        <div className="game-window-bar"><span>snake flies.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
         <div className={`boards boards-${many ? 'many' : 'one'}`}>
         {frame.arenas.map((arena, a) => {
           const label = `Board ${a + 1}, scores ${arena.snakes.map(s => s.score).join(', ')}`;
