@@ -86,9 +86,9 @@ export function BrainScene({ atlas, frame, silenced = [], resetVersion = 0 }: { 
           gl_PointSize = (cut > .5 ? 7.0 : 1.15 + strength * 2.35) * pixelRatio; }`,
         fragmentShader: `varying float strength; varying float cut;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
-          if (cut > .5) { gl_FragColor = vec4(.59, .38, .42, r > .34 ? 1. : .55); return; }
-          vec3 anatomy = vec3(1., .918, .816);       // #FFEAD0
-          vec3 firing = vec3(.969, .435, .557);      // #F76F8E
+          if (cut > .5) { gl_FragColor = vec4(.741, .451, .259, r > .34 ? 1. : .55); return; }
+          vec3 anatomy = vec3(1., .988, .898);        // cornsilk-50 #fffce5
+          vec3 firing = vec3(.89, .204, .329);         // red #E33454
           vec3 color = mix(anatomy, firing, smoothstep(.06, .7, strength));
           gl_FragColor = vec4(color,(.56+.4*strength)*(1.-smoothstep(.18,.5,r))); }`,
       });

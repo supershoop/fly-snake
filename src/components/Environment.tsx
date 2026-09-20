@@ -4,10 +4,7 @@ import { Icon } from './Icon';
 
 const CELL = 32;
 const SENSE_LABELS: Record<string, string> = { food_L: 'Food L', food_R: 'Food R', danger_L: 'Threat L', danger_R: 'Threat R', danger_ahead: 'Threat ahead' };
-// CSS custom properties keep the board in lockstep with the editable theme tokens.
-const COLORS = ['var(--pink)', 'var(--mauve)', 'var(--cream)', 'var(--blue)', 'var(--pink)', 'var(--mauve)', 'var(--cream)', 'var(--blue)'];
-
-function Board({ arena, selectedSnake, label, onSnake }: { arena: ArenaState; selectedSnake: number | null; label: string; onSnake?: (snake: number) => void }) {
+function Board({ arena, label, onSnake }: { arena: ArenaState; label: string; onSnake?: (snake: number) => void }) {
   const id = useId();
   const extent = arena.size * CELL;
   return <svg viewBox={`0 0 ${extent} ${extent}`} role="img" aria-label={label}>
@@ -18,12 +15,11 @@ function Board({ arena, selectedSnake, label, onSnake }: { arena: ArenaState; se
       <path d={`M${CELL} 0V${CELL * 2}M0 ${CELL}H${CELL * 2}M0 0H${CELL * 2}V${CELL * 2}H0Z`} fill="none" stroke="var(--cream)" strokeOpacity=".15" strokeWidth=".65"/>
     </pattern></defs>
     <rect width={extent} height={extent} fill={`url(#${id})`}/>
-    {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="var(--pink)" opacity=".18"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="var(--pink)"/></g>)}
+    {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="#fff" opacity=".22"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="#fff"/></g>)}
     {arena.snakes.map((snake, s) => {
       const [headX, headY] = snake.body[0] ?? [0, 0];
-      const selected = s === selectedSnake;
-      const bodyColor = snake.kind === 'human' || selected ? 'var(--mauve)' : COLORS[s % COLORS.length];
-      const headColor = snake.kind === 'human' ? 'var(--cream)' : selected ? 'var(--pink)' : bodyColor;
+      const bodyColor = 'var(--mauve)';
+      const headColor = 'var(--mauve)';
       const points = snake.body.map(([x, y]) => `${(x + .5) * CELL},${(y + .5) * CELL}`).join(' ');
       const interactive = onSnake && snake.kind === 'fly';
       const opacity = snake.alive ? 1 : .3;
@@ -66,12 +62,11 @@ export function Environment({ frame, status, paused, pending, picked, onPick, on
         <div className="game-window-bar"><span>fly_snake.exe</span><span className="window-controls" aria-hidden="true"><i>−</i><i>□</i><i>×</i></span></div>
         <div className={`boards boards-${many ? 'many' : 'one'}`}>
         {frame.arenas.map((arena, a) => {
-          const selected = chosen?.arena === a;
           const label = `Board ${a + 1}, scores ${arena.snakes.map(s => s.score).join(', ')}`;
           const flyOf = (snake: number) => frame.flies.findIndex(f => f.arena === a && f.snake === snake);
           const boardFlies = arena.snakes.map((_, s) => flyOf(s)).filter(f => f >= 0);
           const isPicked = boardFlies.some(f => picked.includes(f)), isLesioned = boardFlies.some(f => frame.flies[f].lesion.length > 0);
-          const board = <Board arena={arena} selectedSnake={selected ? chosen.snake : null} label={label} onSnake={many ? undefined : snake => { const f = flyOf(snake); if (f >= 0) onPick(f); }}/>;
+          const board = <Board arena={arena} label={label} onSnake={many ? undefined : snake => { const f = flyOf(snake); if (f >= 0) onPick(f); }}/>;
           return many ? <button key={a} className={`board-select ${isLesioned ? 'is-lesioned' : ''}`} aria-label={`${isPicked ? 'Unpick' : 'Pick'} fly ${a + 1}, score ${arena.snakes[0]?.score ?? 0}${isLesioned ? ', lesioned' : ''}`} aria-pressed={isPicked} onClick={() => { if (boardFlies.length) onPick(boardFlies[0]); }}>
             {board}<span><span>Fly {String(a + 1).padStart(2, '0')}{isLesioned ? ' · lesioned' : ''}</span><strong>{arena.snakes[0]?.score ?? 0}</strong></span>
           </button> : <div key={a} className={`single-board ${isPicked ? 'is-picked' : ''} ${isLesioned ? 'is-lesioned' : ''}`}>{board}</div>;

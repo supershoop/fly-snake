@@ -8,7 +8,7 @@
 .audience-copy details { color: var(--muted); font-size: 11px; }
 .audience-copy summary { cursor: pointer; }
 .audience-copy select { max-width: 100%; }
-.audience-qr { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 12px; background: #fff; border-radius: 10px; text-decoration: none; }
+.audience-qr { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 12px; background: var(--cornsilk-50); border-radius: 10px; text-decoration: none; }
 .audience-qr svg { width: 196px; height: 196px; }
-.audience-qr span { color: #263221; font-size: 11px; margin: 3px 0 6px; }
+.audience-qr span { color: var(--midnight-violet-900); font-size: 11px; margin: 3px 0 6px; }
 @media (max-width: 600px) { .audience-training { flex-direction: column-reverse; align-items: flex-start; gap: 22px; } .audience-qr { align-self: center; } }
