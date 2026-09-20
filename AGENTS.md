@@ -45,7 +45,9 @@ Web page against someone else's server: `VITE_BRAIN_WS=ws://<their-ip>:8000/ws n
 | `flybrain/readout.py` | `Policy` (linear, fitted offline), `OnlineLearner` (same readout, learns live from reward), `HardwiredPolicy` (DNa02/DNa01 left-minus-right, nothing trained) |
 | `flybrain/feedback.py`, `src/components/LiveTraining.tsx` | Reward/punishment for a displayed move; delayed feedback trains saved decisions, with receipts and stale-decision rejection |
 | `flybrain/vision.py`, `src/components/FlyView.tsx` | Retinotopic encoder: each LC10/LC4/LPLC2 cell's viewing direction from the eye-map position of its columnar inputs; board painted as a 1-D horizon onto those cells. `VisionDisplay` = signal-path overlay data (nodes/edges/rates) for the brain view, `VisionUntrained` = the branch's original untrained rule |
-| `flybrain/server.py` | FastAPI WebSocket live loop: layouts, policies, per-fly lesions, sensor input, feedback, human control |
+| `flybrain/server.py` | FastAPI WebSocket live loop: layouts, policies, per-fly lesions, sensor input, feedback, human control, idle-when-hidden |
+| `flybrain/thermal.py` | Thermal guard: logs GPU temperature to `outputs/gpu-temps.csv`, slows the simulation at 80 C, holds it at 87 C; `FLY_THERMAL_GUARD=on\|slow\|off` |
+| `src/components/LesionLab.tsx` | Shown for the picked flies only. Three lesions: steering DNa02, giant fiber DNp01, food relays AOTU025/012/015 |
 | `src/lib/live.ts` | Frame types + WebSocket hook. `src/App.tsx` layout/controls, `src/components/Environment.tsx` boards, `BrainScene.tsx` takes `{time, values:[bodyId, 0..1][]}` |
 
 ## WebSocket protocol (`ws://host:8000/ws`, JSON)
@@ -98,6 +100,7 @@ Client -> server, any combination of keys in one message (applied between moves)
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
 | `{"encoder": "channels"\|"retina"}` | how the game reaches the brain: 5 on/off channels (default), or the connectome-derived retinotopic eye (`flybrain/vision.py`; trained policy = `models/readout-vision.npz`, instinct and hardwired also work) |
 | `{"events": bool}` | taste on eating / pain on dying (default on), see Findings |
+| `{"visible": bool}` | sent by the page on connect and whenever its tab is shown or hidden. The simulation idles while every connected page is hidden; clients that never send it count as watching |
 | `{"deathHold": seconds}` | sent by the page: how long its death animation lasts; the game holds that long after the displayed fly dies (0-5 s) |
 | `{"sensor": {"danger_ahead": 0.8}}` | external input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz (built for the dropped hardware track; still works) |
 | `{"stimulate": {"food_L": 1}\|null}` | manual override of all senses; game holds still while set |
@@ -108,7 +111,8 @@ Server -> client, one frame per move (see `LiveFrame` in `src/lib/live.ts`): `ar
 (per fly: `channels`, `action`, `probabilities`, `reward`, `feedbackEligible`, `steer` = Hz of DNa02/DNa01/DNp01 L/R, `lesion`), `selected`,
 `move` (monotonically increasing decision ID), `values` (selected fly's brain activity by bodyId),
 `learning {moves, games, scores[], feedback: {positive, negative, last}}`, `activeNeurons`, `sensor`, `manual`,
-`encoder`, `events`, `silenced` / `silencedTotal` / `silencedByFly` (bodyIds of silenced, drawn cells), `vision {pathway: {node: Hz}, view}`,
+`encoder`, `events`, `thermal {gpu, state: ok|slow|cooling|off, slowAt, pauseAt}` (GPU temperature and what the guard is doing),
+`silenced` / `silencedTotal` / `silencedByFly` (bodyIds of silenced, drawn cells), `vision {pathway: {node: Hz}, view}`,
 `stepRate` (moves/second actually achieved over the period since the previous frame was sent, including any pacing
 sleep; `null` on the first frame after an idle gap, since there is no prior send to measure from);
 per fly also `event` (`"taste"`, `"pain"` or null = what it feels during this window). A frame with `eventOnly: true` repeats the
@@ -234,11 +238,17 @@ The demo laptop hard-crashed once, most likely from heat: hours of GPU load, a 1
 - No faked results in the demo. Fallbacks are labelled: fixed seed, "load pre-trained readout", recorded video.
 
 ## Status (replaces the old track list)
-Done: instinct policy (Normal), lesion lab with pick-to-lesion + silenced-cell markers, signal-path overlay, retinotopic vision
-encoder + fly's-eye view, taste/pain events, live learning + phone audience feedback (QR), human vs fly with buffered input,
-death scene + hold, evolved readouts (see `docs/EVOLUTION.md`).
+Everything below is on `main`. Work there; `fly-brain-snake` and the `worktree-*` branches are history (the `worktree-break-batch`
+branch held a night of work through a laptop crash and has been merged).
+Done: instinct policy (Normal), lesion lab (pick boards, three lesions, silenced cells marked in the brain view), signal-path
+overlay with a pathway selector, retinotopic vision encoder + fly's-eye view, taste/pain events, live learning with a learning
+chart that compares wirings, phone audience feedback (QR), human vs fly with buffered input and a leaderboard, death scene +
+hold, evolved readouts (see `docs/EVOLUTION.md`), idle-when-hidden, thermal guard + temperature log.
+Evidence in hand (see Findings): untrained control real 2.28 vs three scrambles ~0; instinct lesion table with standard errors
+(double dissociation DNa02 vs DNp01); learning from reward, 10 seeds, real 22.0 vs scrambled 5.1.
 Dropped: the hardware track (Pi, ultrasonic sensor, RFID). Its replacement is the phone reward/punish buttons. The `sensor`
 message and the unmerged branch `origin/hardware-track-pi-websocket` remain if anyone wants them.
 No-go after feasibility checks: painting pixels onto the eye; mushroom-body learning that changes steering.
-Open: see the project owner's list; the evidence scripts are `lesion_scores.py`, `untrained_control.py`, `scrambled_check.py`,
-`live_learning_test.py`, `instinct_analysis.py`.
+Before the demo: feature freeze, a fallback video of a good run, one full rehearsal on the demo machine with
+`outputs/gpu-temps.csv` open afterwards, and decide whether the Trained button stays (Normal is the honest hero).
+Evidence scripts: `lesion_scores.py`, `untrained_control.py`, `scrambled_check.py`, `live_learning_test.py`, `instinct_analysis.py`.
