@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import json
 import os
+import queue
 import time
 import warnings
 from pathlib import Path
@@ -19,6 +20,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from .brain import Brain
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
+from .hardware import HardwareMessageError, parse_hardware_message
 from .readout import HardwiredPolicy, OnlineLearner, Policy
 from .snake import Arena
 
@@ -54,6 +56,7 @@ class Experiment:
         self.wiring, self.policy_name = "real", "trained"
         self.paused, self.override, self.selected, self.clock = False, None, 0, 0.0
         self.sensor, self.sensor_seen = {}, 0.0
+        self.hardware_inbox: queue.Queue[tuple[dict, float]] = queue.Queue(maxsize=1)
         self.pending_feedback: list[tuple[int | None, float]] = []
         self.history: list[float] = []  # score of every finished fly game, oldest first
         self.inbox: list[dict] = []     # client messages, applied between moves so they never race the simulation
@@ -132,8 +135,17 @@ class Experiment:
         if "paused" in message:
             self.paused = bool(message["paused"])
 
+    def submit_hardware(self, message: dict):
+        """Keep only the newest physical-sensor reading until the next tick."""
+        with contextlib.suppress(queue.Empty):
+            self.hardware_inbox.get_nowait()
+        self.hardware_inbox.put_nowait((message, time.monotonic()))
+
     # --- one move --------------------------------------------------------------------------------------------------
     def tick(self) -> dict:
+        with contextlib.suppress(queue.Empty):
+            message, received_at = self.hardware_inbox.get_nowait()
+            self.sensor, self.sensor_seen = dict(message["sensor"]), received_at
         while self.inbox:
             with contextlib.suppress(KeyError, ValueError, TypeError, IndexError, AttributeError):
                 self.handle(self.inbox.pop(0))
@@ -233,3 +245,18 @@ async def socket(websocket: WebSocket):
         pass
     finally:
         clients.discard(websocket)
+
+
+@app.websocket("/ws/hardware")
+async def hardware_socket(websocket: WebSocket):
+    """Receive validated ultrasonic readings without broadcasting brain frames."""
+    await websocket.accept()
+    try:
+        while True:
+            message = parse_hardware_message(await websocket.receive_json())
+            if experiment is not None:
+                experiment.submit_hardware(message)
+    except WebSocketDisconnect:
+        pass
+    except (HardwareMessageError, json.JSONDecodeError) as error:
+        await websocket.close(code=1008, reason=str(error))

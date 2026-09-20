@@ -47,7 +47,7 @@ Client -> server, any combination of keys in one message (applied between moves)
 | `{"learning": "reset"}` | blank readout for live learning (rewards: food +1, death -1, closer/farther +-0.1) |
 | `{"feedback": 1\|-1, "fly": i or omitted for all}` | human reward / punishment added to the last move's reward (learning policy only) |
 | `{"lesion": {"fly": i\|null, "types": ["DNa02", "LC10.*"]}}` | silence neuron types (regex, full match on annotation `type`); `null` = every fly; `[]` heals |
-| `{"sensor": {"danger_ahead": 0.8}}` | hardware input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz |
+| `{"sensor": {"danger_ahead": 0.8}}` | hardware input: drive 0..1 **added** to the game's senses, goes stale after 0.6 s, so resend at >= 5 Hz; ultrasonic clients should use the send-only `/ws/hardware` endpoint |
 | `{"stimulate": {"food_L": 1}\|null}` | manual override of all senses; game holds still while set |
 | `{"human": "up"\|"down"\|"left"\|"right"}`, `{"select": i}`, `{"paused": bool}` | human snake; which fly's brain is shown; pause |
 
