@@ -51,13 +51,15 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
       </div>
       <div className="layout-control brain-control">
         <span className="eyebrow" id="mode-label">Brain</span>
-        <select className="brain-select" aria-labelledby="mode-label" disabled={!ready} value={selectedMode} onChange={event => {
-          const choice = MODES.find(option => option.mode === event.target.value);
-          if (choice) send(choice.message);
-        }}>
-          {frame?.synaptic?.active && <option value="synaptic" disabled>Trained synapses · fixed readout</option>}
-          {MODES.map(({ mode: option, label }) => <option key={option} value={option}>{label}</option>)}
-        </select>
+        <div className="segmented">
+          <select className="brain-select" aria-labelledby="mode-label" disabled={!ready} value={selectedMode} onChange={event => {
+            const choice = MODES.find(option => option.mode === event.target.value);
+            if (choice) send(choice.message);
+          }}>
+            {frame?.synaptic?.active && <option value="synaptic" disabled>Trained synapses · fixed readout</option>}
+            {MODES.map(({ mode: option, label }) => <option key={option} value={option}>{label}</option>)}
+          </select>
+        </div>
       </div>
       <div className="layout-control step-rate-control">
         <span className="eyebrow" id="step-rate-label">Speed</span>

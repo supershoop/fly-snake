@@ -358,11 +358,10 @@ body::before {
 
 .environment-control { flex: 2 1 0; }
 .brain-control { flex: 1 1 0; }
-.environment-control .segmented button { font-size: 14px; }
-.brain-select { width: 100%; min-height: 47px; padding: 8px 48px 8px 13px; border: 2px solid var(--ink); border-radius: 10px; color: var(--ink); background-color: var(--cream); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23113537' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 20px center; background-size: 12px 8px; appearance: none; font: 800 12px var(--mono); cursor: pointer; }
-.brain-select:hover:not(:disabled) { border-color: var(--pink); }
-.brain-select:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
-.brain-select:disabled { cursor: wait; opacity: .7; }
+.environment-control .segmented button, .brain-select { font-family: inherit; font-size: 14px; font-weight: 750; }
+.brain-select { width: 100%; min-width: 0; min-height: 39px; padding: 7px 48px 7px 12px; border: 2px solid var(--ink); border-radius: 8px; color: var(--ink); background-color: var(--cream); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23113537' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 20px center; background-size: 12px 8px; appearance: none; cursor: pointer; box-shadow: none; transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.brain-select option { font: inherit; background-color: var(--cream); }
+.brain-select:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
 
 .game-window { border-radius: 5px 5px 14px 14px; }
 .senses { text-transform: uppercase; letter-spacing: .045em; }
@@ -371,7 +370,7 @@ body::before {
 .senses > span.on { background-color: var(--pink); }
 
 @media (max-width: 600px) {
-  .environment-control .segmented button { font-size: 11px; }
+  .environment-control .segmented button, .brain-select { font-size: 11px; }
 }
 
 /* Palette application: components use the semantic tokens above, not the previous teal/pink scheme. */
@@ -413,10 +412,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .lab-disclosure > summary:hover { background: #1d151e77; }.lab-disclosure[open] > summary { border-color: #fffce59c; }.disclosure-title, .model-status strong, .model-status p { color: var(--on-dark); }.disclosure-title small, .disclosure-tag, .lesion-lab small { color: var(--on-dark-muted); }.disclosure-tag, .lesion-lab input:not([type]) { border-color: var(--cornsilk-50); }.lesion-note { color: #fffce5d9 !important; }
 .scientific-scope { color: var(--on-dark-muted); }.scientific-scope strong, .scientific-scope a, footer a { color: var(--red); }footer { border-color: #fffce555; color: #fffce5ae; }.footer-team { color: var(--on-dark); }.footer-team > span:last-child { color: var(--on-dark-muted); }.error { color: var(--cornsilk-50); background: #e3345499; }
 
-.brain-select { border-color: var(--midnight-violet-950); color: var(--midnight-violet-950); background-color: var(--cornsilk-50); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23140e15' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); }.brain-select:hover:not(:disabled) { border-color: var(--lobster); }.brain-select:focus-visible { outline-color: var(--lobster); }
+.brain-select { border-color: var(--midnight-violet-950); color: var(--midnight-violet-950); background-color: var(--cornsilk-50); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23140e15' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); }
 .environment-empty p { color: var(--on-dark-muted); }
 .legend-human { background: var(--player-snake); }
-.environment-control .segmented button:hover:not(:disabled) { background: var(--environment-hover-red); }
+.environment-control .segmented button:hover:not(:disabled), .brain-select:hover:not(:disabled) { background-color: var(--environment-hover-red); transform: translate(-1px, -1px); box-shadow: 2px 3px 0 var(--ink); }
 
 /* Live learning is split into a clear start panel, automatic stimuli, then phone teaching. */
 .readout.learning { display: block; padding: 0; }
