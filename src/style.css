@@ -309,8 +309,10 @@ body::before {
 @media (max-width: 760px) { .leaderboard { grid-template-columns: 1fr; } }
 
 /* Learning curve (Training mode) */
-.learning-chart { position: relative; z-index: 2; width: 100%; max-width: 1320px; margin: 0 auto; padding: 22px clamp(20px, 4vw, 48px) 18px; } .learning-chart figcaption { color: var(--cornsilk-50); font-size: 13px; font-weight: 800; } .learning-chart figcaption small { color: #fffce5ba; margin-left: 8px; font-weight: 500; }
+.learning-chart { position: relative; z-index: 2; width: 100%; max-width: 1320px; margin: 0 auto; padding: 22px clamp(20px, 4vw, 48px) 18px; } .learning-chart figcaption { color: var(--cornsilk-50); font: inherit; line-height: 1.75; letter-spacing: normal; }
 .learning-chart svg { display: block; width: 100%; max-width: none; height: auto; touch-action: none; }
+.learning-chart-plot { position: relative; flex: 1; min-height: 210px; }
+.learning-chart-plot svg { position: absolute; inset: 0; height: 100%; }
 .chart-grid { stroke: #fffce536; stroke-width: 1; } .chart-reference { stroke: #fffce566; stroke-width: 1; stroke-dasharray: 4 4; } .chart-crosshair { stroke: #fffce599; stroke-width: 1; }
 .chart-tick { fill: #fffce5ad; font-size: 10px; } .chart-value { fill: var(--cornsilk-50); font-size: 11px; font-weight: 700; } .chart-empty { padding: 18px 24px; color: var(--cornsilk-50); font-size: 11px; }
 .chart-table { padding-top: 12px; color: #fffce5cf; font-size: 11px; } .chart-table summary { width: fit-content; cursor: pointer; color: var(--cornsilk-50); font-weight: 750; } .chart-table-scroll { max-height: 320px; margin-top: 10px; overflow: auto; border: 1px solid #fffce555; border-radius: 8px; } .chart-table table { width: 100%; min-width: 360px; border-collapse: collapse; } .chart-table th, .chart-table td { padding: 7px 14px; border-bottom: 1px solid #fffce533; text-align: right; font-variant-numeric: tabular-nums; } .chart-table th:first-child, .chart-table td:first-child { text-align: left; } .chart-table thead th { position: sticky; top: 0; z-index: 1; color: var(--cornsilk-50); background: var(--midnight-violet-900); text-align: right; } .chart-table thead small { display: block; margin-top: 2px; color: #fffce5a8; font-size: 8px; font-weight: 500; } .chart-table tbody th { color: var(--cornsilk-50); font-weight: 700; } .chart-table tbody tr:nth-child(even) { background: #fffce50d; } .chart-table tbody tr:last-child > * { border-bottom: 0; }
@@ -438,34 +440,34 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .legend-human { background: var(--player-snake); }
 .environment-control .segmented button:hover:not(:disabled), .brain-select:hover:not(:disabled) { background-color: var(--environment-hover-red); transform: translate(-1px, -1px); box-shadow: 2px 3px 0 var(--ink); }
 
-/* Learning controls sit above the progress graph and phone teaching. */
+/* Each learning column stacks its panels without stretching the shorter controls. */
 .readout.learning { display: block; padding: 0; }
 .learning-console { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.25fr); }
+.learning-column { min-width: 0; }
+.learning-column:first-child { display: flex; flex-direction: column; border-right: 2px solid #fffce555; }
 .learning-overview, .learning-stimuli, .learning-graph { min-width: 0; padding: 24px; }
-.learning-overview { display: flex; flex-direction: column; border-right: 2px solid #fffce555; }
-.learning-graph { border-top: 2px solid #fffce555; border-right: 2px solid #fffce555; }
-.learning-graph .learning-chart { padding: 0; }
+.learning-overview { display: flex; flex-direction: column; }
+.learning-graph { display: flex; flex: 1; border-top: 2px solid #fffce555; }
+.learning-graph .learning-chart { display: flex; flex-direction: column; padding: 0; }
 .learning-graph .chart-empty { margin: 0; padding: 0; color: var(--cornsilk-50); }
 .learning-overview > div > p { max-width: 46ch; }
 .learning-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
 .learning-stats span { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 10px; border: 1px solid #fffce55c; border-radius: 8px; background: #1d151e52; }
 .learning-stats b { color: var(--cornsilk-50); font-family: var(--mono); font-size: 16px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
 .learning-stats small { color: #fffce5b8; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
-.learning-actions { margin-bottom: 13px; }
-.learning-actions button { min-height: 38px; border-color: #fffce59c; color: var(--cornsilk-50); background: transparent; }
+.learning-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; margin-bottom: 13px; }
+.learning-actions button { width: 100%; min-width: 0; min-height: 38px; border-color: #fffce59c; color: var(--cornsilk-50); background: transparent; }
 .learning-actions .learning-primary { color: var(--midnight-violet-950); border-color: var(--cornsilk-50); background: var(--cornsilk-50); }
 .learning-actions .learning-primary:hover:not(:disabled) { background: var(--red); }
-.learning-availability { min-height: 2.8em; padding-left: 10px; border-left: 3px solid var(--red); color: var(--cornsilk-50) !important; }
-.learning-human-stimuli { color: #fff !important; font-size: 11px !important; font-weight: 700; }
-.learning-note { margin-top: auto !important; margin-bottom: 0 !important; color: #fffce5b8 !important; font-size: 10px !important; line-height: 1.6 !important; }
+.learning-overview .learning-availability { margin-bottom: 0; padding-left: 10px; border-left: 3px solid var(--red); color: var(--cornsilk-50) !important; }
 .learning-stimuli .event-stimuli > strong { color: var(--cornsilk-50); }
 .learning-stimuli .event-stimuli > p { color: #fffce5cf; }
 .learning-stimuli .event-stimuli-status { color: var(--cornsilk-50); }
 
 @media (max-width: 850px) {
   .learning-console { grid-template-columns: 1fr; }
-  .learning-overview { border-right: 0; border-bottom: 2px solid #fffce555; }
-  .learning-graph { border-right: 0; }
+  .learning-column:first-child { border-right: 0; }
+  .learning-column + .learning-column { border-top: 2px solid #fffce555; }
 }
 @media (max-width: 600px) {
   .learning-overview, .learning-stimuli, .learning-graph { padding: 20px; }
