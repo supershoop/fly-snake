@@ -26,11 +26,30 @@ MALECNS_WEIGHT_SCALE = 0.4
 SHUFFLE_SEED = 0
 
 
+def default_device() -> torch.device:
+    """Return CUDA only when this PyTorch build can actually execute on it.
+
+    ``torch.cuda.is_available()`` only confirms that a driver is visible.  It
+    can still be true when the installed CUDA wheel has no kernels for the
+    installed GPU, which otherwise lets the web server start and then kills
+    its first simulation tick.
+    """
+    if not torch.cuda.is_available():
+        return torch.device("cpu")
+    try:
+        # Creating a filled tensor and reading it back forces a real kernel
+        # launch, rather than merely checking that CUDA can allocate memory.
+        torch.zeros(1, device="cuda").sum().item()
+    except (torch.AcceleratorError, RuntimeError):
+        return torch.device("cpu")
+    return torch.device("cuda")
+
+
 class Brain:
     def __init__(self, connectome: Connectome, batch: int = 1, dt: float = 0.5, shuffled: bool = False,
                  weight_scale: float = MALECNS_WEIGHT_SCALE, device: str | None = None, seed: int = 0,
                  shuffle_seed: int = SHUFFLE_SEED, cpu_sparse: bool = True):
-        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        self.device = torch.device(device) if device is not None else default_device()
         self.n, self.batch, self.dt = connectome.n, batch, dt
         self.rng = torch.Generator(device=self.device).manual_seed(seed)
         post = connectome.post

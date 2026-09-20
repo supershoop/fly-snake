@@ -16,7 +16,7 @@ const SILENCED = "#9085e9";
 const FULL_RATE_HZ = 150;
 
 /** Real anatomy; model values are looked up by body ID, never by spatial proximity. */
-const INITIAL_ZOOM = 1.28;
+const INITIAL_ZOOM = 2.1;
 
 /** `pathway` (optional) overlays the sensory-to-steering circuits on the anatomy: the real cells, lines between them, live rates. */
 export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates, resetVersion = 0 }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[]; pathway?: VisionStatic["pathway"] | null; pathwayRates?: Record<string, number>; resetVersion?: number }) {
@@ -103,8 +103,8 @@ export function BrainScene({ atlas, frame, silenced = [], pathway, pathwayRates,
         fragmentShader: `varying float strength; varying float cut; uniform float dim;
           void main() { float r = length(gl_PointCoord - vec2(.5)); if (r > .5) discard;
           if (cut > .5) { gl_FragColor = vec4(.565, .522, .914, r > .3 ? 1. : .35); return; }  // silenced cell: violet ring, a colour no pathway uses
-          vec3 anatomy = vec3(1., .918, .816);       // #FFEAD0
-          vec3 firing = vec3(.969, .435, .557);      // #F76F8E
+          vec3 anatomy = vec3(1., .988, .898);        // cornsilk-50 #fffce5
+          vec3 firing = vec3(.89, .204, .329);         // red #E33454
           vec3 color = mix(anatomy, firing, smoothstep(.06, .7, strength));
           gl_FragColor = vec4(color,(.56+.4*strength)*(1.-smoothstep(.18,.5,r))*mix(dim,1.,strength)); }`,
       });

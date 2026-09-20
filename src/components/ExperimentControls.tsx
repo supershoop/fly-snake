@@ -5,7 +5,6 @@ const LAYOUTS: { layout: Layout; label: string; detail?: string; hint: string }[
   { layout: 'solo', label: 'One fly', hint: 'One simulated brain. One snake. Follow the signal from senses to movement.' },
   { layout: 'swarm', label: 'Swarm', detail: '16', hint: 'Sixteen independent brains, one board each. Select a board to inspect its fly.' },
   { layout: 'versus', label: 'Versus', hint: 'You are the coral snake. Use arrow keys, WASD, or the direction buttons to play.' },
-  { layout: 'arena', label: 'Arena', detail: '8', hint: 'Eight flies compete on one board. Choose a fly to inspect its brain and score.' },
 ];
 
 type Mode = 'trained' | 'normal' | 'scrambled' | 'training' | 'training-scrambled';
@@ -23,10 +22,11 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
 }) {
   const layout = pending?.layout ?? frame?.layout;
   const mode = frame ? modeOf(pending?.wiring ?? frame.wiring, pending?.policy ?? frame.policy) : null;
+  const selectedMode = mode ?? 'trained';
   const ready = status === 'live' && !!frame && !paused;
   return <section className="experiment-controls" aria-label="Experiment settings">
     <div className="control-row">
-      <div className="layout-control">
+      <div className="layout-control environment-control">
         <span className="eyebrow" id="layout-label">Environment</span>
         <div className="segmented" role="group" aria-labelledby="layout-label">
           {LAYOUTS.map(({ layout: option, label, detail, hint }) => <button key={option} disabled={!ready} title={hint} aria-pressed={layout === option} onClick={() => send({ layout: option })}>
@@ -34,11 +34,14 @@ export function ExperimentControls({ frame, status, paused, pending, send }: {
           </button>)}
         </div>
       </div>
-      <div className="layout-control">
+      <div className="layout-control brain-control">
         <span className="eyebrow" id="mode-label">Brain</span>
-        <div className="segmented" role="group" aria-labelledby="mode-label">
-          {MODES.map(({ mode: option, label, hint, message }) => <button key={option} disabled={!ready} title={hint} aria-pressed={mode === option} onClick={() => send(message)}><span>{label}</span></button>)}
-        </div>
+        <select className="brain-select" aria-labelledby="mode-label" disabled={!ready} value={selectedMode} onChange={event => {
+          const choice = MODES.find(option => option.mode === event.target.value);
+          if (choice) send(choice.message);
+        }}>
+          {MODES.map(({ mode: option, label }) => <option key={option} value={option}>{label}</option>)}
+        </select>
       </div>
     </div>
     <div className="control-caption"><span>{paused ? 'The simulation is paused. Resume to change experiment settings.' : pending ? <span className="pending-inline" role="status"><i className="spinner"/>{pending.message} Waiting for the next brain frame.</span> : frame ? `${LAYOUTS.find(item => item.layout === layout)?.hint} ${MODES.find(item => item.mode === mode)?.hint}` : status === 'live' ? 'Connected to the brain server. Waiting for the first simulation frame.' : 'Connect a brain server to begin. You can explore the measured anatomy below.'}</span><span className="fixed-synapses">Synaptic weights stay fixed</span></div>
