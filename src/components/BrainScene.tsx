@@ -7,9 +7,7 @@ import type { Atlas } from "../lib/atlas";
 export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; frame: ActivityFrame | null; silenced?: number[] }) {
   const signal = useRef(frame);
   const lesion = useRef(silenced);
-  const orbit = useRef(false);
   const resetView = useRef<(() => void) | null>(null);
-  const [orbiting, setOrbiting] = useState(false);
   const repaint = useRef<(() => void) | null>(null);
   useEffect(() => { signal.current = frame; lesion.current = silenced; repaint.current?.(); }, [frame, silenced]);
   const host = useRef<HTMLDivElement>(null);
@@ -126,11 +124,8 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
     renderer.domElement.addEventListener("pointerup", up);
     renderer.domElement.addEventListener("pointercancel", up);
     renderer.domElement.addEventListener("wheel", wheel, { passive: false });
-    let frame = 0, previous = performance.now();
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const animate = (now: number) => {
-      const dt = Math.min(.05,(now - previous) / 1000); previous = now;
-      if (orbit.current && !held && !reducedMotion.matches && !document.hidden) anatomy.rotation.y += dt * .12;
+    let frame = 0;
+    const animate = () => {
       if (!document.hidden) renderer.render(scene, camera);
       frame = requestAnimationFrame(animate);
     };
@@ -146,8 +141,7 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
 
   return <>
     <div className="brain-view-controls">
-      <button title="Reset to native XY projection with equal axis scale" onClick={() => { orbit.current = false; setOrbiting(false); resetView.current?.(); }}>XY view</button>
-      <button aria-pressed={orbiting} onClick={() => { orbit.current = !orbit.current; setOrbiting(orbit.current); }}>Orbit {orbiting ? "on" : "off"}</button>
+      <button title="Reset to native XY projection with equal axis scale" onClick={() => resetView.current?.()}>XY view</button>
     </div>
     <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
     <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas. Drag to rotate and scroll to zoom.">

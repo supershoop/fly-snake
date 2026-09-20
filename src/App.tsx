@@ -10,6 +10,25 @@ import { Icon } from './components/Icon';
 import { asset, loadAtlas, type Atlas } from './lib/atlas';
 import { useLiveBrain } from './lib/live';
 
+const INTRO_COPY = {
+  solo: {
+    title: 'Customize a fly’s wiring. Watch it play Snake.',
+    description: 'Pick a fly, tweak its wiring, and see what it does with a game of Snake.',
+  },
+  versus: {
+    title: 'Can you beat a small, puny fruit fly?',
+    description: 'You steer the coral snake. The fruit fly gets its simulated brain. Good luck to both of you.',
+  },
+  swarm: {
+    title: 'Sixteen tiny fly brains. Sixteen games of Snake.',
+    description: 'Pick a board, change a fly’s wiring, and see whose little brain keeps going.',
+  },
+  arena: {
+    title: 'Eight flies, one board, and a very busy game of Snake.',
+    description: 'Pick a fly, tweak its wiring, and watch the tiny rivalry unfold.',
+  },
+};
+
 export function App() {
   const [atlas, setAtlas] = useState<Atlas | null>(null);
   const [error, setError] = useState('');
@@ -39,6 +58,7 @@ export function App() {
     return { animation, sequence: frame.time };
   }, [frame?.time, fly?.arena, fly?.snake, fly?.action, fly?.reward, frame?.arenas]);
   const displayLayout = pending?.layout ?? frame?.layout;
+  const intro = INTRO_COPY[displayLayout ?? 'solo'];
   useEffect(() => setPicked([]), [layout]);
   const pick = (fly: number) => { setPicked(current => current.includes(fly) ? current.filter(f => f !== fly) : [...current, fly]); send({ select: fly }); };
   // Brain view marks the silenced cells of every picked fly (or of the shown fly when none is picked).
@@ -70,12 +90,12 @@ export function App() {
     <a className="skip-link" href="#experiment">Skip to experiment</a>
     <header className="site-header">
       <a className="brand" href="#" aria-label="Fly Snake home"><span className="brand-mark"><Icon name="snake" size={23}/></span><span>fly<span className="brand-divider">/</span>snake</span></a>
-      <span className="header-caption">A connectome experiment</span>
+      <span className="header-caption">A tiny brain experiment</span>
       <nav aria-label="Page navigation"><a href="#experiment">Workbench</a><a href="https://github.com/supershoop/fly-snake#readme" target="_blank" rel="noreferrer">About <span aria-hidden="true">↗</span></a></nav>
     </header>
     <main id="experiment">
       <section className="intro" aria-labelledby="page-title">
-        <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">A fly’s wiring. A game of Snake.</h1><p className="intro-description">Follow sensory signals through a simulated fruit-fly connectome, one move at a time.</p></div>
+        <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">{intro.title}</h1><p className="intro-description">{intro.description}</p></div>
         <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}` : 'Measured anatomy · simulated activity'}</span></div>
       </section>
       <ExperimentControls frame={frame} status={status} paused={paused} pending={visiblePending} send={send}/>
@@ -95,8 +115,8 @@ export function App() {
         <section className="panel fly-panel" aria-labelledby="body-title">
           <div className="panel-heading"><h2 id="body-title"><span className="panel-number">03</span>The organism</h2><span className="panel-meta">Drosophila</span></div>
           <FlyScene command={flyCommand}/>
-          <div className="body-caption"><em>Drosophila melanogaster</em><span>Rigged motor display<br/>Live Snake controls</span></div>
-          <div className="panel-bottom"><span>Live input/reward animation</span><span>Drag to rotate · Scroll to zoom</span></div>
+          <div className="body-caption"><em>Drosophila melanogaster</em><span>Also known as the common fruit fly.</span></div>
+          <div className="panel-bottom"><span>live fruit fly reaction:</span><span>Drag to rotate · Scroll to zoom</span></div>
         </section>
       </div>
       {frame && (picked.length > 0 || frame.policy === 'learning') && <section className="experiment-lab" id="lab" aria-label="Experiment lab">
