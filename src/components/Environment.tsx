@@ -18,8 +18,8 @@ function Board({ arena, label, onSnake }: { arena: ArenaState; label: string; on
     {arena.foods.map(([x, y], index) => <g key={index}><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .35} fill="#fff" opacity=".22"/><circle cx={(x + .5) * CELL} cy={(y + .5) * CELL} r={CELL * .2} fill="#fff"/></g>)}
     {arena.snakes.map((snake, s) => {
       const [headX, headY] = snake.body[0] ?? [0, 0];
-      const bodyColor = 'var(--mauve)';
-      const headColor = 'var(--mauve)';
+      const bodyColor = snake.kind === 'human' ? 'var(--player-snake)' : 'var(--mauve)';
+      const headColor = bodyColor;
       const points = snake.body.map(([x, y]) => `${(x + .5) * CELL},${(y + .5) * CELL}`).join(' ');
       const interactive = onSnake && snake.kind === 'fly';
       const opacity = snake.alive ? 1 : .3;

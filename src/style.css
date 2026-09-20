@@ -6,6 +6,7 @@
   /* Palette source of truth — editable here without requiring Tailwind. */
   --cornsilk-50: #fffce5; --cornsilk-100: #fffacc; --cornsilk-200: #fff599; --cornsilk-300: #fff066; --cornsilk-400: #ffeb33; --cornsilk-500: #ffe500; --cornsilk-600: #ccb800; --cornsilk-700: #998a00; --cornsilk-800: #665c00; --cornsilk-900: #332e00; --cornsilk-950: #242000;
   --walnut: #723850;
+  --player-snake: #4F59DE;
   --midnight-violet-50: #f4f0f5; --midnight-violet-100: #e9e1ea; --midnight-violet-200: #d2c2d6; --midnight-violet-300: #bca4c1; --midnight-violet-400: #a586ac; --midnight-violet-500: #8f6798; --midnight-violet-600: #725379; --midnight-violet-700: #563e5b; --midnight-violet-800: #39293d; --midnight-violet-900: #1d151e; --midnight-violet-950: #140e15;
   /* Semantic tokens keep a future palette swap small and deliberate. */
   --red: #E33454;
@@ -414,4 +415,5 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 
 .brain-select { border-color: var(--midnight-violet-950); color: var(--midnight-violet-950); background-color: var(--cornsilk-50); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23140e15' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E"); }.brain-select:hover:not(:disabled) { border-color: var(--lobster); }.brain-select:focus-visible { outline-color: var(--lobster); }
 .environment-empty p { color: var(--on-dark-muted); }
+.legend-human { background: var(--player-snake); }
 .environment-control .segmented button:hover:not(:disabled) { background: var(--environment-hover-red); }
