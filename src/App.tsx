@@ -48,6 +48,10 @@ export function App() {
   const activity = useMemo(() => frame ? { time: frame.time, values: frame.values } : null, [frame]);
   const recent = frame?.learning.scores.slice(-20) ?? [];
   const average = recent.length ? (recent.reduce((a, b) => a + b, 0) / recent.length).toFixed(1) : '—';
+  // Steering in versus mode is part of continuous play. Keep the board unobscured
+  // while the next server frame applies that input; configuration changes still
+  // receive the normal immediate pending feedback.
+  const visiblePending = pending?.kind === 'human-move' && frame?.layout === 'versus' ? null : pending;
   useEffect(() => {
     if (frame?.layout !== 'versus' || paused || frame.manual) return;
     const keys: Record<string, string> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'up', s: 'down', a: 'left', d: 'right' };
@@ -74,13 +78,13 @@ export function App() {
         <div><p className="eyebrow">MaleCNS v1.0 <span className="intro-slash">/</span> Interactive simulation</p><h1 id="page-title">A fly’s wiring. A game of Snake.</h1><p className="intro-description">Follow sensory signals through a simulated fruit-fly connectome, one move at a time.</p></div>
         <div className="session-status"><span className={`status-pill ${status === 'live' && frame && !paused ? 'is-live' : ''}`} role="status"><i/>{connection}</span><span className="mono">{frame ? `${frame.time.toFixed(1)} s brain time · ${frame.flies.length} ${frame.flies.length === 1 ? 'brain' : 'brains'}` : 'Measured anatomy · simulated activity'}</span></div>
       </section>
-      <ExperimentControls frame={frame} status={status} paused={paused} pending={pending} send={send}/>
-      {pending && <div className="command-toast" role="status" aria-live="polite"><i className="spinner"/><span>{pending.message}<small>Waiting for the next brain frame…</small></span></div>}
+      <ExperimentControls frame={frame} status={status} paused={paused} pending={visiblePending} send={send}/>
+      {visiblePending && <div className="command-toast" role="status" aria-live="polite"><i className="spinner"/><span>{visiblePending.message}<small>Waiting for the next brain frame…</small></span></div>}
       {error && <p className="error" role="alert">The brain atlas could not load. {error}</p>}
       <div className="workbench">
         <section className="panel environment-panel" aria-labelledby="environment-title">
           <div className="panel-heading"><h2 id="environment-title"><span className="panel-number">01</span>The environment</h2><span className="panel-meta">{displayLayout === 'versus' ? 'Human vs fly' : displayLayout === 'swarm' ? '16 independent boards' : displayLayout === 'arena' ? '8 flies · one board' : 'Snake'}</span></div>
-          <Environment frame={frame} status={status} paused={paused} pending={pending} picked={picked} onPick={pick} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
+          <Environment frame={frame} status={status} paused={paused} pending={visiblePending} picked={picked} onPick={pick} onSelect={select => send({ select })} onHuman={human => send({ human })} onResume={resume}/>
           <div className="panel-bottom"><span>Game state <span aria-hidden="true">→</span> sensory neurons <span aria-hidden="true">→</span> brain <span aria-hidden="true">→</span> move</span><span className="live-dot">{frame ? `Move ${frame.move ?? '—'}` : 'Awaiting input'}</span></div>
         </section>
         <section className="panel brain-panel" aria-labelledby="brain-title">
@@ -92,7 +96,7 @@ export function App() {
           <div className="panel-heading"><h2 id="body-title"><span className="panel-number">03</span>The organism</h2><span className="panel-meta">Drosophila</span></div>
           <FlyScene command={flyCommand}/>
           <div className="body-caption"><em>Drosophila melanogaster</em><span>Rigged motor display<br/>Live Snake controls</span></div>
-          <div className="panel-bottom"><span>Live input/reward animation</span><span>Drag to rotate</span></div>
+          <div className="panel-bottom"><span>Live input/reward animation</span><span>Drag to rotate · Scroll to zoom</span></div>
         </section>
       </div>
       {frame && (picked.length > 0 || frame.policy === 'learning') && <section className="experiment-lab" id="lab" aria-label="Experiment lab">

@@ -28,7 +28,7 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
     element.appendChild(renderer.domElement);
     const anatomy = new THREE.Group();
     scene.add(anatomy);
-    resetView.current = () => { anatomy.rotation.set(0, 0, 0); fit(); };
+    resetView.current = () => { anatomy.rotation.set(0, 0, 0); camera.zoom = 1; fit(); };
     let geometry: THREE.BufferGeometry | undefined;
     let material: THREE.ShaderMaterial | undefined;
     let size = new THREE.Vector3(5, 2, 1);
@@ -37,9 +37,9 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
       const { width, height } = element.getBoundingClientRect();
       renderer.setSize(Math.max(1, width), Math.max(1, height), false);
       const aspect = Math.max(1, width) / Math.max(1, height);
-      const yawRadius = Math.hypot(size.x, size.z) / 2;
-      const tiltedHeight = Math.abs(Math.cos(anatomy.rotation.x)) * size.y / 2 + Math.abs(Math.sin(anatomy.rotation.x)) * yawRadius;
-      const halfHeight = Math.max(tiltedHeight, yawRadius / aspect) * 1.08;
+      // Frame the whole atlas once, rather than changing the camera scale as it rotates.
+      const radius = size.length() / 2;
+      const halfHeight = Math.max(radius, radius / aspect) * 1.08;
       camera.top = halfHeight; camera.bottom = -halfHeight;
       camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect;
       camera.position.set(0, 0, 10);
@@ -114,13 +114,18 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
       anatomy.rotation.y += (event.clientX - lastX) * .006;
       anatomy.rotation.x += (event.clientY - lastY) * .006;
       lastX = event.clientX; lastY = event.clientY;
-      fit();
     };
     const up = () => { held = false; };
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      camera.zoom = THREE.MathUtils.clamp(camera.zoom * Math.exp(-event.deltaY * .001), .45, 4);
+      camera.updateProjectionMatrix();
+    };
     renderer.domElement.addEventListener("pointerdown", down);
     renderer.domElement.addEventListener("pointermove", move);
     renderer.domElement.addEventListener("pointerup", up);
     renderer.domElement.addEventListener("pointercancel", up);
+    renderer.domElement.addEventListener("wheel", wheel, { passive: false });
     let frame = 0, previous = performance.now();
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const animate = (now: number) => {
@@ -134,6 +139,7 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
       disposed = true; resetView.current = null; cancelAnimationFrame(frame); repaint.current = null; observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", down); renderer.domElement.removeEventListener("pointermove", move);
       renderer.domElement.removeEventListener("pointerup", up); renderer.domElement.removeEventListener("pointercancel", up);
+      renderer.domElement.removeEventListener("wheel", wheel);
       geometry?.dispose(); material?.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
   }, [atlas]);
@@ -144,7 +150,7 @@ export function BrainScene({ atlas, frame, silenced = [] }: { atlas: Atlas; fram
       <button aria-pressed={orbiting} onClick={() => { orbit.current = !orbit.current; setOrbiting(orbit.current); }}>Orbit {orbiting ? "on" : "off"}</button>
     </div>
     <div className="brain-legend"><span><i/>Measured anatomy</span><span><i/>Simulated activity [0–1]</span>{silenced.length > 0 && <span className="cut-key"><i/>Silenced cells</span>}</div>
-    <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas">
+    <div ref={host} className="three-viewport brain-viewport" aria-label="MaleCNS brain soma atlas. Drag to rotate and scroll to zoom.">
       {state !== "ready" && <span className="neural-load" role="status">{state === "error" ? "Atlas unavailable" : <><i className="spinner"/>Loading anatomy…</>}</span>}
 
     </div>

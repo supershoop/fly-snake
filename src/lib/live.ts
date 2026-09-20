@@ -31,6 +31,8 @@ export type NeuronType = [string, number, string];
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 export type PendingCommand = {
   message: string;
+  /** Human steering is a continuous play action, not a blocking UI operation. */
+  kind?: 'human-move';
   layout?: Layout;
   policy?: PolicyName;
   wiring?: Wiring;
@@ -66,7 +68,7 @@ function describeCommand(message: Record<string, unknown>): PendingCommand | nul
   if ('lesion' in message) return { message: 'Applying the lesion…' };
   if ('feedback' in message) return { message: 'Applying feedback…' };
   if ('stimulate' in message) return { message: message.stimulate === null ? 'Returning to the game…' : 'Applying the sensory input…', manual: message.stimulate !== null };
-  if ('human' in message) return { message: 'Sending your move…' };
+  if ('human' in message) return { message: 'Sending your move…', kind: 'human-move' };
   if ('sensor' in message) return { message: 'Updating the sensor input…' };
   if ('paused' in message && message.paused === false) return { message: 'Resuming the simulation…' };
   return null;
