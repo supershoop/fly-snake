@@ -78,9 +78,10 @@ class OnlineLearner(Policy):
     All flies in the batch share one readout, so N flies gather experience N times faster. The brain never changes.
     """
 
-    def __init__(self, features: int, device="cpu", rate: float = 0.005, seed: int = 0):
+    def __init__(self, features: int, device="cpu", rate: float = 0.005, seed: int = 0, entropy: float = 0.0):
         super().__init__(torch.zeros(3, features, device=device), torch.zeros(3, device=device))
         self.rate, self.moves = rate, 0
+        self.entropy = entropy  # > 0 keeps the policy exploring, which cures runs that stall at ~5 points (scripts/live_learning_test.py)
         self.rng = torch.Generator(device=device).manual_seed(seed)
         self.last = None
 
@@ -108,6 +109,9 @@ class OnlineLearner(Policy):
             return
         inputs, probabilities, action = experience
         error = (torch.nn.functional.one_hot(action, 3).float() - probabilities) * rewards.to(inputs.device)[:, None]
+        if self.entropy:  # gradient of the policy's entropy with respect to its logits
+            log_p = torch.log(probabilities.clamp_min(1e-8))
+            error = error - self.entropy * probabilities * (log_p - (probabilities * log_p).sum(dim=1, keepdim=True))
         self.weight += self.rate * error.T @ inputs
         self.bias += self.rate * error.sum(dim=0)
         if count_moves:

@@ -23,6 +23,7 @@ class Body:
     idle: int = 0
     games: int = 0
     last_score: int = 0
+    high_score: int = 0
     wanted_heading: int | None = None  # human input, absolute
     end_reason: str | None = None  # collision | starvation | filled; evaluation only
 
@@ -41,7 +42,7 @@ class Arena:
     def reset(self):
         self.foods = []
         for snake in self.snakes:
-            snake.cells, snake.score, snake.games = [], 0, 0
+            snake.cells, snake.score, snake.games, snake.high_score = [], 0, 0, 0
         for index in range(len(self.snakes)):
             self._spawn(index)
         while len(self.foods) < self.food_count:
@@ -113,10 +114,13 @@ class Arena:
     def steer_human(self, index: int, heading_name: str):
         self.snakes[index].wanted_heading = HEADING_NAMES.get(heading_name)
 
-    def step(self, actions: dict[int, int]) -> dict[int, float]:
-        """actions: snake index -> LEFT/STRAIGHT/RIGHT for fly snakes (humans use steer_human). Returns rewards."""
+    def step(self, actions: dict[int, int], hold: frozenset[int] | set[int] = frozenset()) -> dict[int, float]:
+        """actions: snake index -> LEFT/STRAIGHT/RIGHT for fly snakes (humans use steer_human). Returns rewards.
+        Snakes in `hold` stay where they are this move (a fly pausing to feed) and get no reward entry."""
         rewards = {}
         for index, snake in enumerate(self.snakes):
+            if index in hold and snake.alive:
+                continue
             if not snake.alive:
                 if self.respawn:
                     self._spawn(index)
@@ -152,13 +156,15 @@ class Arena:
 
     def _kill(self, snake: Body, reason: str = "collision") -> float:
         snake.alive, snake.games, snake.last_score = False, snake.games + 1, snake.score
+        snake.high_score = max(snake.high_score, snake.score)
         snake.end_reason = reason
         return REWARD_DIE
 
     def render_state(self) -> dict:
         return {"size": self.size, "foods": self.foods,
                 "snakes": [{"kind": s.kind, "body": s.cells, "heading": s.heading, "alive": s.alive, "score": s.score,
-                            "games": s.games, "lastScore": s.last_score} for s in self.snakes]}
+                            "games": s.games, "lastScore": s.last_score,
+                            "highScore": max(s.high_score, s.score)} for s in self.snakes]}
 
 
 class Snake(Arena):

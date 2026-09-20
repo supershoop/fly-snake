@@ -1,6 +1,8 @@
 """Synthetic decisions verify feedback plumbing, not biological performance."""
 import json
 from collections import deque
+from pathlib import Path
+import tempfile
 from threading import Lock
 from types import SimpleNamespace
 import unittest
@@ -10,6 +12,7 @@ import numpy as np
 import torch
 
 from flybrain.feedback import HumanFeedback
+from flybrain.leaderboard import Leaderboard
 from flybrain.readout import OnlineLearner, Policy
 from flybrain.server import Experiment
 
@@ -110,7 +113,13 @@ class HumanFeedbackTests(unittest.TestCase):
 
 
 def small_experiment():
-    """Use real arenas/readouts, with explicit synthetic spikes instead of connectome data."""
+    """Use real arenas/readouts, with explicit synthetic spikes instead of connectome data.
+
+    Experiment.__init__ needs the connectome/GPU, so this fakes only what tick()/policy()
+    actually dereference (checked against flybrain/server.py, not guessed) rather than
+    running __init__ for real. If a test fails with an AttributeError on self.<field>,
+    __init__ likely grew a new field this fixture needs to learn about too.
+    """
     experiment = Experiment.__new__(Experiment)
     experiment.device = torch.device("cpu")
     experiment.brains = {"real": Mock()}
@@ -124,11 +133,20 @@ def small_experiment():
     experiment.inbox = []
     experiment.human_moves, experiment.human_move_lock = deque(), Lock()
     experiment.stim_index = torch.tensor([0])
+    experiment.all_stim_index = torch.tensor([0])  # channels + retina + event cells; no retina/event cells here
     experiment.readout_index = experiment.visible = torch.arange(2)
     experiment.visible_ids = np.array([101, 102])
+    experiment.readout_neurons = SimpleNamespace(type=SimpleNamespace(eq=lambda *_: np.array([])),
+                                                 side=SimpleNamespace(eq=lambda *_: np.array([])))
     experiment.channels = SimpleNamespace(levels=lambda levels: levels, readout_body_ids=np.array([101, 102]))
     experiment.connectome = SimpleNamespace(n=2)
     experiment.steer = {}
+    experiment.death_hold, experiment.step_rate = 0.0, 0.0
+    experiment.encoder, experiment.events_enabled = "channels", False  # events/vision are exercised in their own tests
+    experiment.leaderboard, experiment.player, experiment.round_over = Leaderboard(Path(tempfile.mkdtemp()) / "leaderboard.json"), "anonymous", False
+    experiment.retina = SimpleNamespace(index=np.zeros(0, dtype=int), render=lambda arena, snake_index=0: np.zeros(0, dtype=np.float32))
+    experiment.display = SimpleNamespace(live=lambda counts, seconds, drive: {"pathway": {}, "view": []})
+    experiment.event_matrix = torch.zeros(0, 2)
     experiment.set_layout("solo")
     return experiment
 

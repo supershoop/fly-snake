@@ -18,14 +18,17 @@ import numpy as np
 import torch
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from .brain import Brain
+from .brain import Brain, default_device
 from .audience import feedback_urls, install_audience
 from .operator_control import install_operator
 from .channels import CHANNEL_NAMES, STEER_TYPES, build_channels
 from .connectome import load_connectome
 from .feedback import HumanFeedback
+from .leaderboard import Leaderboard, clean_name
 from .readout import HardwiredPolicy, InstinctPolicy, OnlineLearner, Policy
+from .vision import VisionDisplay, VisionUntrained, build_retina
 from .snake import Arena, HEADING_NAMES
+from .thermal import ThermalGuard
 
 warnings.filterwarnings("ignore")
 WINDOW_MS = 100.0
@@ -39,14 +42,19 @@ LAYOUTS = {  # name -> list of arenas, each (board size, snake kinds, foods)
     "versus": [(16, ("fly", "human"), 2)],
     "arena": [(24, ("fly",) * 8, 5)],
 }
-LESION_PRESETS = ["LC10.*", "LC4", "LPLC2", "DNa02", "DNa01", "DNp01"]
+# What the fly feels when the game says so, as real sensory neurons (regex on annotation `type`). Probed in
+# scripts/event_probe.py: sugar taste drives the feeding motor neuron MN9 (~30 Hz); the heat/humidity receptors light
+# ~6,000 neurons and drive the punishment dopamine neurons PPL1 (~80 Hz). Neither moves DNa02 or the giant fiber.
+EVENT_SOURCES = {"taste": r"LB3.*|claw_tpGRN", "pain": r"HRN_.*|TRN_.*"}
+EVENT_NAMES = list(EVENT_SOURCES)
+LESION_PRESETS = ["DNa02", "DNp01", "AOTU0(25|12|15)"]
 
 
 class Experiment:
     def __init__(self):
         self.connectome = load_connectome()
         self.channels = build_channels(self.connectome)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = default_device()
         self.stim_index = self.channels.stim_index.to(self.device)
         self.readout_index = self.channels.readout_index.to(self.device)
         atlas_ids = np.fromfile(ATLAS / "ids.bin", dtype="<u4")[np.fromfile(ATLAS / "groups.bin", dtype="u1") < 3]
@@ -54,6 +62,16 @@ class Experiment:
         self.visible = torch.as_tensor(np.flatnonzero(np.isin(body_ids, atlas_ids)), device=self.device)
         self.visible_ids = body_ids[self.visible.cpu().numpy()]
         readout = self.connectome.neurons.loc[self.channels.readout_index.numpy()]
+        self.readout_neurons, self.encoder = readout, "channels"
+        self.retina = build_retina(self.connectome)
+        self.display = VisionDisplay(self.connectome, self.retina)
+        kinds = self.connectome.neurons["type"].fillna("")
+        event_masks = [kinds.str.fullmatch(EVENT_SOURCES[name]).to_numpy() for name in EVENT_NAMES]
+        event_cells = np.flatnonzero(np.any(event_masks, axis=0))
+        self.event_matrix = torch.as_tensor(np.stack([m[event_cells] for m in event_masks], axis=1).astype(np.float32), device=self.device)  # [cells, events]
+        self.events_enabled = True
+        self.leaderboard, self.player, self.round_over = Leaderboard(), "anonymous", False
+        self.all_stim_index = torch.cat([self.stim_index, self.retina.index.to(self.device), torch.as_tensor(event_cells, device=self.device)])
         self.steer = {f"{kind}_{side}": torch.as_tensor(np.flatnonzero((readout["type"].eq(kind) & readout["side"].eq(side)).to_numpy()), device=self.device)
                       for kind in STEER_TYPES + ["DNp01"] for side in "LR"}
         self.brains, self.policies = {}, {}
@@ -83,6 +101,7 @@ class Experiment:
         if self.device.type == "cpu":
             torch.set_num_threads(min(os.cpu_count() or 1, 4 if len(self.flies) == 1 else 8))
         self.lesions: list[list[str]] = [[] for _ in self.flies]
+        self.pending_events = np.zeros((len(EVENT_NAMES), len(self.flies)), dtype=np.float32)  # felt during the NEXT brain window
         self.silenced_ids, self.silenced_total = [[] for _ in self.flies], [0] * len(self.flies)
         self.selected, self.history = 0, []
         for brain in self.brains.values():
@@ -90,23 +109,25 @@ class Experiment:
 
     def brain(self) -> Brain:
         if self.wiring not in self.brains:
-            self.brains[self.wiring] = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled")
+            self.brains[self.wiring] = Brain(self.connectome, batch=len(self.flies), shuffled=self.wiring == "shuffled",
+                                              device=str(self.device))
             self.apply_lesions()
         return self.brains[self.wiring]
 
     def policy(self):
         if getattr(self, "operator_policy", None) is not None:
             return self.operator_policy
-        key = (self.policy_name, self.wiring)
+        retina = self.encoder == "retina"
+        key = (self.policy_name, self.wiring, "retina") if retina else (self.policy_name, self.wiring)
         if key not in self.policies:
             if self.policy_name == "instinct":
                 self.policies[key] = InstinctPolicy(self.steer, WINDOW_MS)
             elif self.policy_name == "hardwired":
-                self.policies[key] = HardwiredPolicy(self.channels.steer_sign)
+                self.policies[key] = VisionUntrained(self.readout_neurons) if retina else HardwiredPolicy(self.channels.steer_sign)
             elif self.policy_name == "learning":
                 self.policies[key] = OnlineLearner(len(self.readout_index), self.device)
             else:
-                self.policies[key] = Policy.load(f"readout-{self.wiring}", self.device)
+                self.policies[key] = Policy.load("readout-vision" if retina else f"readout-{self.wiring}", self.device)
         return self.policies[key]
 
     def apply_lesions(self):
@@ -149,6 +170,10 @@ class Experiment:
             operator.clear(self)
         if message.get("layout") in LAYOUTS:
             self.set_layout(message["layout"])
+        if "events" in message:  # taste on eating, pain on dying
+            self.events_enabled = bool(message["events"])
+        if message.get("encoder") in ("channels", "retina"):  # 5 on/off channels, or the connectome-derived retinotopic eye
+            self.encoder = message["encoder"]
         if message.get("wiring") in ("real", "shuffled"):
             if self.wiring != message["wiring"]:
                 self.feedback.clear()
@@ -183,6 +208,8 @@ class Experiment:
             self.override = message["stimulate"]
         if "human" in message:
             self.queue_human_move(message["human"])
+        if "player" in message:  # the human's name for the versus leaderboard
+            self.player = clean_name(message["player"])
         if "deathHold" in message:  # the page reports how long its death animation lasts
             self.death_hold = min(5.0, max(0.0, float(message["deathHold"])))
         if "stepRate" in message:  # host slider: cap moves/second; 0 or omitted-below-min means uncapped
@@ -203,6 +230,13 @@ class Experiment:
                 self.handle(self.inbox.pop(0))
         operator.apply(self)
         audience.apply(self)
+        if self.round_over:  # the human died last move: both snakes start the next round from scratch
+            self.round_over = False
+            for arena in self.arenas:
+                arena.reset()
+            brain_now = self.brains.get(self.wiring)
+            if brain_now is not None:
+                brain_now.reset()
         if human_heading is not None:
             for arena in self.arenas:
                 for index, snake in enumerate(arena.snakes):
@@ -215,10 +249,26 @@ class Experiment:
         elif time.monotonic() - self.sensor_seen < SENSOR_HOLD_S:
             extra = np.array([[float(self.sensor.get(n, 0.0))] for n in CHANNEL_NAMES], dtype=np.float32)
             levels = np.clip(levels + extra, 0, 1)
-        counts = brain.run(WINDOW_MS, self.stim_index, self.channels.levels(torch.as_tensor(levels, device=self.device)))
+        view = np.zeros((len(self.retina.index), len(self.flies)), dtype=np.float32)  # [retina cells, B]
+        for f, (a, s) in enumerate(self.flies):  # with the channel encoder only the displayed fly's view is needed
+            if self.encoder == "retina" or f == self.selected:
+                view[:, f] = self.retina.render(self.arenas[a], s)
+        if self.encoder == "retina" and self.override is None:
+            levels = np.zeros_like(levels)  # the game reaches the brain through the retina only
+        shown_to_retina = view if self.encoder == "retina" and self.override is None else np.zeros_like(view)
+        felt, self.pending_events = self.pending_events, np.zeros_like(self.pending_events)
+        feeding = felt[EVENT_NAMES.index("taste")] > 0  # [B] visual input suppresses the feeding response (scripts/event_probe.py), so a
+        if feeding.any() and self.override is None:     # feeding fly pauses: no visual input and no move for this one window
+            levels[:, feeding] = 0.0
+            shown_to_retina = shown_to_retina.copy()
+            shown_to_retina[:, feeding] = 0.0
+        drive = torch.cat([self.channels.levels(torch.as_tensor(levels, device=self.device)), torch.as_tensor(shown_to_retina, device=self.device),
+                           self.event_matrix @ torch.as_tensor(felt, device=self.device)])
+        counts = brain.run(WINDOW_MS, self.all_stim_index, drive)
         dn_counts = counts[self.readout_index]
         actions, probabilities = policy.act(dn_counts)
         actions = actions.tolist()
+        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # that fly died: its next life starts with a quiet brain
 
         rewards = np.zeros(len(self.flies), dtype=np.float32)
         eligible = [False] * len(self.flies)
@@ -227,13 +277,26 @@ class Experiment:
         headings = [self.arenas[a].snakes[s].heading for a, s in self.flies]
         if self.override is None:
             for a, arena in enumerate(self.arenas):
-                outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a})
+                outcome = arena.step({s: actions[f] for f, (fa, s) in enumerate(self.flies) if fa == a},
+                                     hold={s for f, (fa, s) in enumerate(self.flies) if fa == a and feeding[f]})
                 for f, (fa, s) in enumerate(self.flies):
                     if fa == a:
                         rewards[f] = outcome.get(s, 0.0)
                         eligible[f] = s in outcome
                         if s in outcome and not arena.snakes[s].alive:
                             self.history.append(arena.snakes[s].last_score)
+                        if self.events_enabled and rewards[f] >= 1:
+                            self.pending_events[EVENT_NAMES.index("taste"), f] = 1.0
+                        if self.events_enabled and rewards[f] <= -1:
+                            self.pending_events[EVENT_NAMES.index("pain"), f] = 1.0
+        if self.layout == "versus" and self.override is None:
+            for arena in self.arenas:
+                humans = [snake for snake in arena.snakes if snake.kind == "human"]
+                if any(not snake.alive for snake in humans):  # one round = one human life
+                    fly_score = max((snake.score if snake.alive else snake.last_score) for snake in arena.snakes if snake.kind == "fly")
+                    mode = "scrambled wiring" if self.wiring == "shuffled" else {"instinct": "normal", "hardwired": "normal", "learning": "training"}.get(self.policy_name, "trained")
+                    self.leaderboard.record(self.player, max(snake.last_score for snake in humans if not snake.alive), fly_score, mode)
+                    self.round_over = True
         self.move += 1
         if isinstance(policy, OnlineLearner) and self.override is None:
             self.feedback.remember(self.move, policy, eligible, headings)
@@ -255,9 +318,12 @@ class Experiment:
                        "channels": dict(zip(CHANNEL_NAMES, levels[:, f].tolist())), "action": actions[f],
                        "probabilities": [round(p, 3) for p in probabilities[f].tolist()], "reward": float(rewards[f]),
                        "feedbackEligible": eligible[f] and isinstance(policy, OnlineLearner),
+                       "event": next((name for e, name in enumerate(EVENT_NAMES) if felt[e, f] > 0), None),
                        "steer": {name: round(values[f], 1) for name, values in steer.items()}, "lesion": self.lesions[f]}
                       for f, (a, s) in enumerate(self.flies)],
-            "selected": self.selected, "lesionPresets": LESION_PRESETS,
+            "selected": self.selected, "lesionPresets": LESION_PRESETS, "encoder": self.encoder, "events": self.events_enabled,
+            "leaderboard": {"player": self.player, "top": self.leaderboard.top(), **self.leaderboard.tally()} if self.layout == "versus" else None,
+            "vision": self.display.live(counts[:, self.selected], WINDOW_MS / 1000, view[:, self.selected]),
             "silenced": self.silenced_ids[self.selected], "silencedTotal": int(self.silenced_total[self.selected]),
             "silencedByFly": {str(f): ids for f, ids in enumerate(self.silenced_ids) if ids},
             "learning": {"moves": getattr(policy, "moves", 0), "games": len(self.history), "scores": self.history[-300:],
@@ -267,8 +333,32 @@ class Experiment:
         }
 
 
+    def event_frame(self, frame: dict) -> dict | None:
+        """The game is holding for a death scene: let the brain feel what is pending (the pain) now, with no game move, so
+        the flash is seen while the fly flails. Returns the same frame with fresh brain activity, or None if nothing is pending."""
+        if not self.pending_events.any():
+            return None
+        brain = self.brain()
+        felt, self.pending_events = self.pending_events, np.zeros_like(self.pending_events)
+        quiet = torch.zeros((len(self.all_stim_index) - self.event_matrix.shape[0], len(self.flies)), device=self.device)
+        counts = brain.run(WINDOW_MS, self.all_stim_index, torch.cat([quiet, self.event_matrix @ torch.as_tensor(felt, device=self.device)]))
+        brain.reset_brains(torch.as_tensor(felt[EVENT_NAMES.index("pain")] > 0))  # the pain burst is self-sustaining otherwise (~7,000 neurons ring on)
+        seconds = WINDOW_MS / 1000
+        rates = counts[:, self.selected] / seconds
+        shown = (rates[self.visible] / FULL_SCALE_HZ).clamp(max=1.0).cpu().numpy()
+        firing = np.flatnonzero(shown)
+        self.clock += seconds
+        flies = [dict(fly, reward=0.0, event=next((name for e, name in enumerate(EVENT_NAMES) if felt[e, f] > 0), None)) for f, fly in enumerate(frame["flies"])]
+        return dict(frame, time=round(self.clock, 3), flies=flies, eventOnly=True,
+                    vision=self.display.live(counts[:, self.selected], seconds, np.zeros(len(self.retina.index), dtype=np.float32)),
+                    activeNeurons=int((rates > 0).sum()),
+                    values=[[int(i), round(float(v), 3)] for i, v in zip(self.visible_ids[firing], shown[firing])])
+
+
 app = FastAPI()
 clients: set[WebSocket] = set()
+visible: dict[WebSocket, bool] = {}  # pages report whether their tab is showing; clients that never report count as watching
+guard = ThermalGuard()
 experiment: Experiment | None = None
 audience = install_audience(app, lambda: experiment)
 operator = install_operator(app, lambda: experiment)
@@ -278,10 +368,18 @@ async def loop():
     global experiment
     experiment = await asyncio.to_thread(Experiment)
     record = open(os.environ["FLY_RECORD"], "a") if os.environ.get("FLY_RECORD") else None
-    sent_at = None  # when the previous frame actually went out, for the achieved-rate readout
+    sent_at = None    # when the previous frame actually went out, for the achieved-rate readout
+    last_message = None
     while True:
-        if (not clients and not audience.clients) or experiment.paused:
+        unwatched = bool(clients) and not any(visible.get(client, True) for client in clients)  # every page is minimised or in a background tab
+        if (not clients and not audience.clients) or experiment.paused or unwatched or guard.cooling:
             await audience.publish(paused=experiment.paused)
+            if guard.cooling and last_message is not None:  # keep the page informed while the GPU cools down
+                last_message["thermal"] = guard.status()
+                for client in list(clients):
+                    with contextlib.suppress(Exception):
+                        await client.send_text(json.dumps(last_message))
+                await asyncio.sleep(1.0)
             await asyncio.sleep(0.1)
             sent_at = None  # idle time is not part of the moves/second the slider promises
             continue
@@ -303,6 +401,8 @@ async def loop():
         # decimal cannot distinguish 0.25 from 0.2/0.3 once scheduling jitter is folded in.
         frame["stepRate"] = round(1 / max(now - sent_at, 1e-6), 2) if sent_at else None
         sent_at = now
+        frame["thermal"] = guard.status()
+        last_message = frame
         message = json.dumps(frame)
         if record:
             record.write(message + "\n")
@@ -311,11 +411,19 @@ async def loop():
             with contextlib.suppress(Exception):
                 await client.send_text(message)
         if experiment.death_hold and frame["flies"][frame["selected"]]["reward"] <= -1:
+            felt = await asyncio.to_thread(experiment.event_frame, frame)  # the pain lands while the death scene plays
+            if felt is not None:
+                for client in list(clients):
+                    with contextlib.suppress(Exception):
+                        await client.send_text(json.dumps(felt))
             await asyncio.sleep(experiment.death_hold)  # let the displayed fly's death scene play out
+        if guard.gap():
+            await asyncio.sleep(guard.gap())  # running hot: leave a gap between moves so the GPU gets a rest
 
 
 @app.on_event("startup")
 async def start():
+    asyncio.create_task(guard.watch(lambda: f"{experiment.layout} x{len(experiment.flies)} {experiment.policy_name}" if experiment else "starting"))
     asyncio.create_task(loop())
 
 
@@ -327,7 +435,7 @@ async def socket(websocket: WebSocket):
         while True:
             message = json.loads(await websocket.receive_text())
             if experiment is not None and isinstance(message, dict) and "hello" in message:  # one-off catalogue for the lesion search
-                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue(), "feedbackUrls": feedback_urls(websocket)}}))
+                await websocket.send_text(json.dumps({"hello": {"types": experiment.type_catalogue(), "feedbackUrls": feedback_urls(websocket), "vision": experiment.display.static}}))
                 continue
             if experiment is not None and isinstance(message, dict):
                 # Human commands are intentionally queued immediately. This
@@ -337,6 +445,8 @@ async def socket(websocket: WebSocket):
                 if "human" in message:
                     experiment.queue_human_move(message["human"])
                     message = {key: value for key, value in message.items() if key != "human"}
+                if "visible" in message:
+                    visible[websocket] = bool(message.pop("visible"))
                 if "paused" in message:
                     experiment.paused = bool(message["paused"])
                 if message:
@@ -345,3 +455,4 @@ async def socket(websocket: WebSocket):
         pass
     finally:
         clients.discard(websocket)
+        visible.pop(websocket, None)

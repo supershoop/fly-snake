@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type Layout = 'solo' | 'swarm' | 'versus' | 'arena';
 export type PolicyName = 'trained' | 'hardwired' | 'instinct' | 'learning';
 export type Wiring = 'real' | 'shuffled';
-export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number };
+export type SnakeState = { kind: 'fly' | 'human'; body: [number, number][]; heading: number; alive: boolean; score: number; games: number; lastScore: number; highScore: number };
 export type ArenaState = { size: number; foods: [number, number][]; snakes: SnakeState[] };
 export type FlyState = {
   // danger_* includes immediate collision and losing the route to the moving tail.
@@ -11,6 +11,8 @@ export type FlyState = {
   reward: number; steer: Record<string, number>; lesion: string[]; feedbackEligible?: boolean;
   /** Pre-move facing this decision was made from; phone D-pad votes resolve against it. */
   heading?: number;
+  /** What this fly is feeling during this brain window: it just ate (sugar taste) or just died (heat sensors). */
+  event?: 'taste' | 'pain' | null;
 };
 export type FeedbackState = {
   positive: number; negative: number;
@@ -29,7 +31,14 @@ export type LiveFrame = {
   learning: { moves: number; games: number; scores: number[]; feedback?: FeedbackState };
   activeNeurons: number; totalNeurons: number; values: [number, number][];
   /** bodyIds of the shown fly's silenced cells that the atlas draws, and how many cells are silenced in total. */
+  encoder?: 'channels' | 'retina';
+  /** Selected fly: firing rate (Hz) of each pathway node, and the retina cells lit this move as [cell index, drive 0..1]. */
+  vision?: { pathway: Record<string, number>; view: [number, number][] };
+  /** Versus layout only. One round = one human life; `fly` is the fly's score in that same round. */
+  leaderboard?: { player: string; top: { name: string; human: number; fly: number; brain: string; when: number }[]; rounds: number; humanWins: number; flyWins: number } | null;
   silenced?: number[]; silencedTotal?: number;
+  /** GPU temperature and what the server's thermal guard is doing about it. */
+  thermal?: { gpu: number | null; state: 'ok' | 'slow' | 'cooling' | 'off'; slowAt: number; pauseAt: number };
   /** fly index -> bodyIds of its silenced, drawn cells; only lesioned flies appear. */
   silencedByFly?: Record<string, number[]>;
 };
@@ -52,6 +61,15 @@ export type OperatorState = {
   paused: boolean; move: number; reason: string;
 };
 export type OperatorMessage = { state: OperatorState } | { result: { ok: true; state: OperatorState } | { ok: false; reason: string } };
+/** Sent once with the hello reply. Built by flybrain/vision.py from the connectome. */
+export type VisionStatic = {
+  /** Each edge is [from node, to node, pathway]; a node lists every pathway it is part of. */
+  pathway: { nodes: { id: string; label: string; side: 'L' | 'R'; role: string; groups: string[]; bodyIds: number[] }[]; edges: [string, string, string][] };
+  /** Eye columns as [u, v, side]: u = hex1 - hex2 (large = front of the eye), v = hex1 + hex2 (large = dorsal). */
+  eye: { columns: [number, number, 'L' | 'R'][] };
+  /** Retina cells as [azimuth deg (negative = left), u, v, side, isFoodDetector]. */
+  retina: { cells: [number, number, number, 'L' | 'R', boolean][]; fieldDeg: [number, number]; threatRange: number };
+};
 export type LiveStatus = 'connecting' | 'live' | 'offline';
 export type PendingCommand = {
   message: string;
@@ -115,6 +133,7 @@ export function useLiveBrain() {
   const [frame, setFrame] = useState<LiveFrame | null>(null);
   const [status, setStatus] = useState<LiveStatus>('connecting');
   const [types, setTypes] = useState<NeuronType[]>([]);
+  const [vision, setVision] = useState<VisionStatic | null>(null);
   const [feedbackUrls, setFeedbackUrls] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingCommand | null>(null);
   const asked = useRef(false);
@@ -124,10 +143,10 @@ export function useLiveBrain() {
     const connect = () => {
       const ws = new WebSocket(url());
       socket.current = ws;
-      ws.onopen = () => setStatus('live');
+      ws.onopen = () => { setStatus('live'); ws.send(JSON.stringify({ visible: !document.hidden })); };
       ws.onmessage = event => {
         const message = JSON.parse(event.data);
-        if (message.hello) { setTypes(message.hello.types); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
+        if (message.hello) { setTypes(message.hello.types); setVision(message.hello.vision ?? null); setFeedbackUrls(message.hello.feedbackUrls ?? []); return; }
         if (!asked.current) { asked.current = true; ws.send(JSON.stringify({ hello: true })); }
         setFrame(message);
         setPending(current => {
@@ -139,7 +158,11 @@ export function useLiveBrain() {
       ws.onclose = () => { if (closed) return; asked.current = false; setStatus('offline'); setFrame(null); setPending(null); setFeedbackUrls([]); retry = window.setTimeout(connect, 1500); };
     };
     connect();
-    return () => { closed = true; clearTimeout(retry); socket.current?.close(); };
+    // The simulation idles while every page is hidden (minimised or in a background tab). Losing focus alone does not count:
+    // during a demo the page stays on screen while another window has the keyboard.
+    const reportVisibility = () => { if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(JSON.stringify({ visible: !document.hidden })); };
+    document.addEventListener('visibilitychange', reportVisibility);
+    return () => { document.removeEventListener('visibilitychange', reportVisibility); closed = true; clearTimeout(retry); socket.current?.close(); };
   }, []);
   const send = useCallback((message: object) => {
     if (socket.current?.readyState !== WebSocket.OPEN) return;
@@ -152,5 +175,5 @@ export function useLiveBrain() {
     });
     socket.current.send(JSON.stringify(message));
   }, []);
-  return { frame, status, send, types, pending, feedbackUrls };
+  return { frame, status, send, types, pending, feedbackUrls, vision };
 }
